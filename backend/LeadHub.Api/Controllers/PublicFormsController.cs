@@ -27,6 +27,10 @@ public class PublicFormsController(IPublicForms publicForms) : ControllerBase
         var userAgent = Request.Headers.UserAgent.ToString();
 
         var result = await publicForms.SubmitForm(new SubmitFormInput(formSlug, payload, ipAddress, userAgent));
+
+        if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Value.RedirectUrl))
+            return Redirect(result.Value.RedirectUrl);
+
         return this.ToActionResult(result);
     }
 }
