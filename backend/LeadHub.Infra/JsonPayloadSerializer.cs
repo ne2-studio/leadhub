@@ -4,7 +4,7 @@ namespace LeadHub.Infra;
 
 /// <summary>
 /// Converts between the plain-CLR-object Payload dictionaries the core works with and the JSON
-/// representations used both over HTTP (public submissions) and in Postgres (jsonb column).
+/// representation stored in Postgres (jsonb column).
 /// </summary>
 public static class JsonPayloadSerializer
 {
@@ -15,23 +15,6 @@ public static class JsonPayloadSerializer
     {
         using var document = JsonDocument.Parse(json);
         return ToDictionary(document.RootElement);
-    }
-
-    /// <summary>
-    /// Parses raw JSON text and returns the payload dictionary only if the root is a JSON object;
-    /// returns null otherwise (arrays, scalars, malformed JSON), so callers can reject non-object bodies.
-    /// </summary>
-    public static Dictionary<string, object?>? TryParseObject(string json)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(json);
-            return document.RootElement.ValueKind == JsonValueKind.Object ? ToDictionary(document.RootElement) : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
     }
 
     private static Dictionary<string, object?> ToDictionary(JsonElement element)
