@@ -1,53 +1,55 @@
-# Service Template — Backend
+# LeadHub — Backend
 
-Starting point for new backend services, scaffolded to match the conventions in
-[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md). ASP.NET Core (.NET 10) with a ports & adapters
-layout, PostgreSQL via Dapper + FluentMigrator, JWT bearer auth, and Serilog.
+Lightweight form backend for static websites: create forms, receive submissions at a public
+per-form endpoint, browse them from an authenticated admin API, and optionally notify an owner by
+email. ASP.NET Core (.NET 10) ports & adapters, PostgreSQL via Dapper + FluentMigrator, JWT bearer
+auth, and Serilog — scaffolded from and following the conventions in
+[`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md). The application contract is defined in
+[`docs/CONTRACT.md`](../docs/CONTRACT.md); the HTTP surface in [`docs/API.md`](../docs/API.md).
 
-It ships with one example resource — **tasks** (add/list/delete, paired with the frontend's task
-list screen) — a minimal CRUD slice that exercises every convention end-to-end so you have a
-working reference instead of an empty shell:
+Notable pieces:
 
-- `Result<T>` for expected failures instead of exceptions/try-catch-500
-- an output port per external effect (`IClock`, `IIdGenerator`, `ITaskRepository`, `INotifier`)
-- a caching **decorator** (`CachedTaskRepository`) composed at the DI root, registered `Singleton`
-  as a deliberate, documented exception to the default `Scoped` lifetime
-- the **Null Object pattern** for feature-flagged behavior (`INotifier` swaps between `LoggingNotifier`
-  and `NullNotifier` based on `Features:Notifications:Enabled`, decided once in `ServiceRegistration`)
-- a public, unauthenticated, rate-limited endpoint (`/health`) alongside JWT-protected resource endpoints
-- two-tier testing: hand-written fakes for core/application logic, NSubstitute mocks for the infra decorator
-
-## How to use this template
-
-1. Copy `service-template/backend/` to the new service's `backend/` directory.
-2. Rename `ServiceTemplate` throughout — project folders, `.csproj`/`.sln` file names, namespaces,
-   `AssemblyName`s, and references to `ServiceTemplate.Api` / `ServiceTemplate.Infra` — to your
-   `{ProjectName}`.
-3. Replace the `Task` domain (entity, repository, use case, controller, migration) with your actual
-   domain, keeping the same layering: `Ports/Input` for use-case contracts, `Ports/Output` for
-   everything external, `Application/` for business logic, `Infra/` for adapters.
-4. Update `Auth:Authority` / `Auth:Audience` in `appsettings.json`, the database name in the connection
-   string, and the Serilog `Application` property.
+- `Result<T, Error>` / `UnitResult<Error>` (CSharpFunctionalExtensions) for every expected failure
+  path — typed error codes, no exceptions for control flow.
+- An output port per external effect (`IClock`, `IIdGenerator`, `IFormRepository`,
+  `ISubmissionRepository`, `IEmailNotificationSender`, `ISpamProtection`, `IRateLimiter`).
+- A caching **decorator** (`CachedFormRepository`) composed at the DI root, registered `Singleton`
+  as a deliberate exception to the default `Scoped` lifetime — `GetBySlug` is hit on every public
+  submission.
+- The **Null Object pattern** for feature-flagged behavior (`IEmailNotificationSender` swaps between
+  `ResendEmailNotificationSender` and `NullEmailNotificationSender` based on
+  `Features:EmailNotifications:Enabled`, decided once in `ServiceRegistration`).
+- Honeypot-based spam detection (`_honeypot` reserved field) and an in-memory, per-form/per-IP rate
+  limiter (`InMemoryRateLimiter`), both required by the public submit use case — on top of the
+  infra-level, ASP.NET Core rate limiter applied to the public route.
+- Two-tier testing: hand-written fakes for core/application logic (`LeadHub.Tests`), NSubstitute
+  mocks for the infra decorator and plain unit tests for the other infra adapters
+  (`LeadHub.Infra.Tests`).
 
 ## Architecture
 
 ```
-ServiceTemplate        — domain core (use cases, ports)
-ServiceTemplate.Infra  — adapters (PostgreSQL, caching decorator, notifier)
-ServiceTemplate.Api    — HTTP entry point (controllers, JWT validation)
+LeadHub        — domain core (use cases, ports)
+LeadHub.Infra  — adapters (PostgreSQL, caching decorator, Resend, spam/rate-limit)
+LeadHub.Api    — HTTP entry point (controllers, JWT validation)
 ```
 
 ## API endpoints
 
-Task management endpoints require a valid JWT (`Authorization: Bearer <token>`). Full request/response
-shapes are documented in [`docs/API.md`](../docs/API.md).
+Admin endpoints require a valid JWT (`Authorization: Bearer <token>`); the public submit endpoint
+does not. Full request/response shapes are documented in [`docs/API.md`](../docs/API.md).
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/tasks` | Required | Create a task |
-| `GET` | `/api/tasks` | Required | List tasks (paginated) |
-| `DELETE` | `/api/tasks/{id}` | Required | Delete a task |
-| `GET` | `/health` | Public (rate-limited) | Liveness check |
+| Method   | Path                                        | Auth      | Description                    |
+|----------|---------------------------------------------|-----------|--------------------------------|
+| `GET`    | `/api/admin/forms`                          | Required  | List forms                     |
+| `POST`   | `/api/admin/forms`                          | Required  | Create a form                  |
+| `GET`    | `/api/admin/forms/{formId}`                 | Required  | Get a form                     |
+| `PUT`    | `/api/admin/forms/{formId}`                 | Required  | Update a form                  |
+| `DELETE` | `/api/admin/forms/{formId}`                 | Required  | Delete a form                  |
+| `GET`    | `/api/admin/forms/{formId}/submissions`     | Required  | List a form's submissions      |
+| `GET`    | `/api/admin/submissions/{submissionId}`     | Required  | Get submission details         |
+| `POST`   | `/api/forms/{formSlug}/submit`              | Public    | Submit form data (rate-limited)|
+| `GET`    | `/health`                                   | Public    | Liveness check (rate-limited)  |
 
 ## Getting started
 
@@ -59,10 +61,10 @@ shapes are documented in [`docs/API.md`](../docs/API.md).
 ### Run PostgreSQL locally
 
 ```bash
-docker run --name pg-servicetemplate \
+docker run --name pg-leadhub \
   -e POSTGRES_USER=devuser \
   -e POSTGRES_PASSWORD=devpass \
-  -e POSTGRES_DB=servicetemplate \
+  -e POSTGRES_DB=leadhub \
   -p 5432:5432 \
   -d postgres:16
 ```
@@ -70,16 +72,31 @@ docker run --name pg-servicetemplate \
 To stop and remove the container:
 
 ```bash
-docker stop pg-servicetemplate && docker rm pg-servicetemplate
+docker stop pg-leadhub && docker rm pg-leadhub
 ```
 
 ### Run the API
 
 ```bash
-dotnet run --project ServiceTemplate.Api
+dotnet run --project LeadHub.Api
 ```
 
 The API will be available at http://localhost:5050. Migrations run automatically at startup.
+
+### Email notifications (optional)
+
+Notifications are off by default. To send real emails via [Resend](https://resend.com):
+
+```json
+{
+  "Features": { "EmailNotifications": { "Enabled": true } },
+  "Resend": { "ApiKey": "re_...", "FromAddress": "LeadHub <you@yourdomain.com>" }
+}
+```
+
+Set these via `appsettings.Development.json`, user secrets, or environment variables
+(`Features__EmailNotifications__Enabled`, `Resend__ApiKey`). With the flag off, submissions are
+still stored — only the outbound API call is skipped (Null Object pattern).
 
 ### Run tests
 
@@ -92,16 +109,16 @@ dotnet test
 Build the image:
 
 ```bash
-docker build . -t servicetemplate-api
+docker build . -t leadhub-api
 ```
 
 Run the container:
 
 ```bash
-docker run --name servicetemplate-api \
-  -e "ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=servicetemplate;Username=devuser;Password=devpass" \
+docker run --name leadhub-api \
+  -e "ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=leadhub;Username=devuser;Password=devpass" \
   -p 5050:8080 \
-  servicetemplate-api
+  leadhub-api
 ```
 
 ## License

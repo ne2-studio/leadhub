@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ListChecks, LogOut, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, ListChecks, LogOut, ShieldCheck } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,18 +9,19 @@ interface LayoutProps {
 
 export function Layout({ children, onLogout }: LayoutProps) {
   const navItems = [
-    { id: 'tasks', label: 'Tasks', icon: ListChecks, path: '/' },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    { id: 'forms', label: 'Forms', icon: ListChecks, path: '/forms' },
   ];
 
   return (
-    <div className="min-h-screen bg-background text-text-primary font-sans flex flex-col">
-      <header className="bg-surface border-b border-border p-4 flex items-center justify-between">
+    <div className="min-h-screen bg-background text-text-primary flex flex-col">
+      <header className="bg-ink border-b border-ink p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-primary" />
-          <h1 className="text-lg font-bold tracking-tight uppercase font-mono">{'{ProjectName}'}</h1>
+          <h1 className="text-lg font-bold tracking-tight uppercase text-surface-tint">LeadHub</h1>
         </div>
-        <div className="text-[10px] text-text-secondary font-mono tracking-widest uppercase">
-          v0.0.0
+        <div className="text-[10px] text-surface-tint/60 font-mono tracking-widest uppercase">
+          v0.1.0
         </div>
       </header>
 
@@ -31,6 +32,7 @@ export function Layout({ children, onLogout }: LayoutProps) {
               <NavLink
                 key={item.id}
                 to={item.path}
+                end={item.path === '/'}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-6 py-2.5 text-sm font-medium transition-all duration-200 border-r-2 ${
                   isActive
                     ? 'bg-surface-elevated text-text-primary border-primary'
@@ -48,10 +50,7 @@ export function Layout({ children, onLogout }: LayoutProps) {
           </div>
 
           <div className="p-4 border-t border-border">
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center gap-3 px-6 py-2.5 text-sm font-medium text-text-secondary hover:text-primary hover:bg-surface-elevated/50 transition-all duration-200 rounded-sm"
-            >
+            <button onClick={onLogout} className="btn-icon-muted w-full flex items-center gap-3 px-2 py-2.5 text-sm font-medium justify-start">
               <LogOut className="w-4 h-4" />
               Log out
             </button>

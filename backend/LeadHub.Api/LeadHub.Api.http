@@ -1,0 +1,77 @@
+@LeadHub.Api_HostAddress = http://localhost:5050
+
+GET {{LeadHub.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+POST {{LeadHub.Api_HostAddress}}/api/admin/forms
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Contact Form",
+  "slug": "contact",
+  "description": "Main website contact form",
+  "notificationsEnabled": false,
+  "notificationEmail": null,
+  "thankYouUrl": "https://example.com/thank-you"
+}
+
+###
+
+GET {{LeadHub.Api_HostAddress}}/api/admin/forms
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+GET {{LeadHub.Api_HostAddress}}/api/admin/forms/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+PUT {{LeadHub.Api_HostAddress}}/api/admin/forms/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Contact Form",
+  "slug": "contact",
+  "description": "Updated description",
+  "notificationsEnabled": true,
+  "notificationEmail": "owner@example.com",
+  "thankYouUrl": "https://example.com/thank-you"
+}
+
+###
+
+DELETE {{LeadHub.Api_HostAddress}}/api/admin/forms/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+###
+
+GET {{LeadHub.Api_HostAddress}}/api/admin/forms/00000000-0000-0000-0000-000000000000/submissions?page=1&pageSize=50
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+GET {{LeadHub.Api_HostAddress}}/api/admin/submissions/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+POST {{LeadHub.Api_HostAddress}}/api/forms/contact/submit
+Content-Type: application/json
+
+{
+  "name": "Pedro",
+  "email": "pedro@example.com",
+  "message": "Hello",
+  "_honeypot": ""
+}
+
+###

@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
+/*
+  Exeal design system tokens (docs/DESIGN.md), adapted for a data-dense admin panel:
+  - Colors, rounded scale, and component shapes are carried over faithfully.
+  - The em-based root type scale is a long-form marketing-article concern and is not applied here.
+  - Gopher/Avenir are proprietary webfonts not bundled with this app; the family names are kept for
+    intent but fall back to system fonts, same as the reference template's JetBrains Mono usage.
+*/
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Gopher Medium", "Gopher Regular", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Avenir Book", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-background: #0B0F14;
-  --color-surface: #121821;
-  --color-surface-elevated: #18202B;
-  --color-primary: #3B82F6;
-  --color-text-primary: #E5E7EB;
-  --color-text-secondary: #9CA3AF;
-  --color-error: #EF4444;
-  --color-border: #1F2937;
+  --color-primary: #05e69b;       /* Signal Green — proof / affirmative / submit */
+  --color-secondary: #e6ad1c;     /* Amber — default call-to-action */
+  --color-ink: #182935;           /* Terminal Navy — dark anchor */
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f3f4f4;
+  --color-surface-tint: #f1fff9;
+  --color-neutral-muted: #8d9199;
+  --color-neutral-faint: #d1d3d6;
+  --color-contrast: #000000;
+
+  --color-background: var(--color-surface-subtle);
+  --color-surface-elevated: var(--color-surface-tint);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-neutral-muted);
+  --color-border: var(--color-neutral-faint);
+
+  --radius-none: 0px;
+  --radius-sm: 5px;
+  --radius-lg: 2rem;
+  --radius-full: 9999px;
 }
 
 @layer base {
   body {
     @apply bg-background text-text-primary antialiased selection:bg-primary/30;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-heading);
   }
 
   input, select, textarea {
-    @apply bg-surface border-border text-text-primary focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all;
+    @apply bg-transparent border-2 border-primary text-text-primary outline-none transition-shadow;
+    border-radius: var(--radius-none);
+  }
+
+  input:focus, select:focus, textarea:focus {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 25%, transparent);
   }
 
   table {
@@ -32,12 +62,83 @@
   }
 
   td {
-    @apply p-3 border-b border-border/50;
+    @apply p-3 border-b border-border/60;
   }
 }
 
-.card {
-  @apply bg-surface border border-border rounded-sm p-5 transition-all hover:border-border/80;
+@layer components {
+  /* Pills for anything actionable — the strongest "this is clickable" signal in the system. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-xs uppercase tracking-widest;
+    border-radius: var(--radius-lg);
+    padding: 0.55em 1.4em;
+    transition: filter 0.15s ease, opacity 0.15s ease;
+  }
+
+  .btn:hover {
+    filter: brightness(0.95);
+  }
+
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Default call-to-action: solid Amber. */
+  .btn-primary {
+    @apply text-ink;
+    background-color: var(--color-secondary);
+    border: 3px solid var(--color-secondary);
+  }
+
+  /* Higher-emphasis action — reserved for the one "affirmative / submit" button per view. */
+  .btn-accent {
+    @apply text-ink;
+    background-color: var(--color-primary);
+    border: 3px solid var(--color-primary);
+  }
+
+  /* Solid Ink fill — for CTAs that would clash with Amber. */
+  .btn-dark {
+    @apply text-surface-tint;
+    background-color: var(--color-ink);
+    border: 3px solid var(--color-ink);
+  }
+
+  /* Secondary / low-emphasis action alongside a solid button. */
+  .btn-hollow {
+    @apply bg-transparent;
+    color: var(--color-secondary);
+    border: 3px solid var(--color-secondary);
+  }
+
+  /* Quiet icon-only action (e.g. delete) — deliberately colorless, no competing brand color. */
+  .btn-icon-muted {
+    @apply p-1.5 rounded-sm text-text-secondary hover:text-ink transition-colors;
+  }
+
+  /* Flat/square containers — deliberately not pill-shaped, so "container" never reads as "action". */
+  .card {
+    @apply bg-surface border border-border p-6;
+    border-radius: var(--radius-none);
+    box-shadow: 0.5rem 0.5rem 1rem -1rem rgba(0, 0, 0, 0.75);
+  }
+
+  /* Small pill/chip, informational rather than actionable. */
+  .tag {
+    @apply inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wide border px-2 py-0.5;
+    border-radius: var(--radius-sm);
+    border-color: currentColor;
+  }
+
+  .tag-on {
+    @apply text-ink;
+    background-color: color-mix(in srgb, var(--color-primary) 18%, white);
+    color: color-mix(in srgb, var(--color-primary) 60%, var(--color-ink));
+  }
+
+  .tag-off {
+    @apply bg-surface-subtle text-text-secondary;
+  }
 }
 
 ::-webkit-scrollbar {
@@ -50,5 +151,5 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full hover:bg-text-secondary/30;
+  @apply bg-border rounded-full hover:bg-text-secondary/40;
 }

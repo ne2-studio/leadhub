@@ -12,13 +12,13 @@ services:
     environment:
       POSTGRES_USER: devuser
       POSTGRES_PASSWORD: devpass
-      POSTGRES_DB: servicetemplate
+      POSTGRES_DB: leadhub
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devuser -d servicetemplate"]
+      test: ["CMD-SHELL", "pg_isready -U devuser -d leadhub"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,7 +29,7 @@ services:
       dockerfile: Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=servicetemplate;Username=devuser;Password=devpass"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=leadhub;Username=devuser;Password=devpass"
     ports:
       - "5050:8080"
     depends_on:

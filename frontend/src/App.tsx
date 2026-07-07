@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
-import { useTaskStore } from './store/useTaskStore';
+import { useFormStore } from './store/useFormStore';
 import { Layout } from './components/Layout';
-import { Tasks } from './components/Tasks';
+import { Dashboard } from './components/Dashboard';
+import { Forms } from './components/Forms';
+import { Submissions } from './components/Submissions';
 import { setAccessToken } from './api';
 
 export default function App() {
   const auth = useAuth();
-  const { fetchData, isLoading, error } = useTaskStore();
+  const { forms, fetchData, isLoading, error } = useFormStore();
 
   useEffect(() => {
     setAccessToken(auth.user?.access_token);
@@ -26,6 +28,9 @@ export default function App() {
       fetchData();
     }
   }, [auth.isAuthenticated]);
+
+  const totalForms = useMemo(() => forms.length, [forms]);
+  const totalSubmissions = useMemo(() => forms.reduce((sum, f) => sum + f.submissionCount, 0), [forms]);
 
   const handleLogout = async () => {
     await auth.signoutRedirect();
@@ -56,13 +61,10 @@ export default function App() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
-        <div className="text-center max-w-md border border-border p-12 bg-surface rounded-sm">
+        <div className="text-center max-w-md border border-border p-12 bg-surface">
           <h2 className="text-xs font-mono uppercase tracking-[0.2em] text-text-secondary mb-4">Connection error</h2>
-          <p className="text-sm text-text-primary mb-8 leading-relaxed font-mono">{error}</p>
-          <button
-            onClick={() => fetchData()}
-            className="px-8 py-3 bg-primary text-white text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-all rounded-sm"
-          >
+          <p className="text-sm text-text-primary mb-8 leading-relaxed">{error}</p>
+          <button onClick={() => fetchData()} className="btn btn-primary">
             Retry
           </button>
         </div>
@@ -74,7 +76,10 @@ export default function App() {
     <BrowserRouter>
       <Layout onLogout={handleLogout}>
         <Routes>
-          <Route path="/" element={<Tasks />} />
+          <Route path="/" element={<Dashboard forms={forms} totalForms={totalForms} totalSubmissions={totalSubmissions} />} />
+          <Route path="/forms" element={<Forms />} />
+          <Route path="/forms/:formId/submissions" element={<Submissions forms={forms} />} />
+          <Route path="/forms/:formId/submissions/:submissionId" element={<Submissions forms={forms} />} />
           <Route path="/callback" element={null} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
