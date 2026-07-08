@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using FluentMigrator.Runner;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -27,6 +28,15 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 builder.Services.AddCors();
+
+// Deployed behind Coolify's Traefik proxy, which sits on a Docker network with no fixed IP,
+// so known proxies/networks can't be pinned; clear them to trust the forwarded headers Traefik sets.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Reconfigure logging now that appsettings/environment config is available
 Log.Logger = new LoggerConfiguration()
@@ -100,6 +110,8 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "LeadHub API v1");
     });
 }
+
+app.UseForwardedHeaders();
 
 app.UseSerilogRequestLogging();
 
