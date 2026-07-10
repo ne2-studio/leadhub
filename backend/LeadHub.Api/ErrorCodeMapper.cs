@@ -9,7 +9,6 @@ public static class ErrorCodeMapper
         ErrorCode.SlugAlreadyExists => (StatusCodes.Status409Conflict, "SLUG_ALREADY_EXISTS"),
         ErrorCode.InvalidFormConfiguration => (StatusCodes.Status400BadRequest, "INVALID_FORM_CONFIGURATION"),
         ErrorCode.InvalidSubmissionPayload => (StatusCodes.Status400BadRequest, "INVALID_SUBMISSION_PAYLOAD"),
-        ErrorCode.SpamDetected => (StatusCodes.Status400BadRequest, "SPAM_DETECTED"),
         ErrorCode.RateLimitExceeded => (StatusCodes.Status429TooManyRequests, "RATE_LIMIT_EXCEEDED"),
         ErrorCode.NotificationFailed => (StatusCodes.Status500InternalServerError, "NOTIFICATION_FAILED"),
         ErrorCode.Unauthorized => (StatusCodes.Status401Unauthorized, "UNAUTHORIZED"),

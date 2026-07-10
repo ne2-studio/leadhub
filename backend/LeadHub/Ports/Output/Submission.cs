@@ -6,12 +6,16 @@ public sealed record Submission(
     DateTimeOffset CreatedAt,
     string? IpAddress,
     string? UserAgent,
-    IReadOnlyDictionary<string, object?> Payload
+    IReadOnlyDictionary<string, object?> Payload,
+    SubmissionStatus Status,
+    int SpamScore,
+    IReadOnlyList<string> SpamReasons
 );
 
 public sealed record SubmissionSummaryProjection(
     string Id,
     DateTimeOffset CreatedAt,
     string? IpAddress,
-    string Preview
+    string Preview,
+    SubmissionStatus Status
 );

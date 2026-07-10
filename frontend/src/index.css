@@ -21,6 +21,7 @@
   --color-neutral-muted: #8d9199;
   --color-neutral-faint: #d1d3d6;
   --color-contrast: #000000;
+  --color-danger: #e63946;      /* Reserved for the Spam verdict — the one place red belongs. */
 
   --color-background: var(--color-surface-subtle);
   --color-surface-elevated: var(--color-surface-tint);
@@ -138,6 +139,19 @@
 
   .tag-off {
     @apply bg-surface-subtle text-text-secondary;
+  }
+
+  /* SuspectedSpam verdict — cautionary, same family as the amber CTA color. */
+  .tag-warning {
+    @apply text-ink;
+    background-color: color-mix(in srgb, var(--color-secondary) 20%, white);
+    color: color-mix(in srgb, var(--color-secondary) 65%, var(--color-ink));
+  }
+
+  /* Spam verdict — the only tag allowed to use the danger token. */
+  .tag-danger {
+    background-color: color-mix(in srgb, var(--color-danger) 15%, white);
+    color: var(--color-danger);
   }
 }
 

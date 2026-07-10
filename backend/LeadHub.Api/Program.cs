@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using FluentMigrator.Runner;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -16,7 +17,8 @@ Log.Logger = new LoggerConfiguration()
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -89,6 +91,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddScoped<IAdminForms, AdminFormsManager>();
 builder.Services.AddScoped<IAdminSubmissions, AdminSubmissionsManager>();
 builder.Services.AddScoped<IPublicForms, PublicFormsManager>();
+builder.Services.AddScoped<ISubmissionAnalysis, SubmissionAnalysisManager>();
 
 // Register infrastructure services
 builder.Services.AddInfrastructure(builder.Configuration);

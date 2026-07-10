@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using LeadHub.Infra.SpamAnalysis;
 using LeadHub.Ports.Output;
 
 namespace LeadHub.Infra;
@@ -21,7 +22,22 @@ public static class ServiceRegistration
         services.AddScoped<IIdGenerator, GuidIdGenerator>();
         services.AddScoped<IClock, SystemClock>();
 
-        services.AddScoped<ISpamProtection, HoneypotSpamProtection>();
+        // Spam analysis: each ISpamRule contributes an independent score/reason; adding a new rule
+        // is a new class + one more registration line here, never a change to an existing rule.
+        services.Configure<SpamScoringOptions>(configuration.GetSection("SpamScoring"));
+        services.AddScoped<ISpamRule, HoneypotFilledRule>();
+        services.AddScoped<ISpamRule, MessageContainsUrlRule>();
+        services.AddScoped<ISpamRule, SuspiciousKeywordRule>();
+        services.AddScoped<ISpamRule, SuspiciousNamePatternRule>();
+        services.AddScoped<ISpamRule, MessageTooLongRule>();
+        services.AddScoped<ISpamAnalyzer, RuleBasedSpamAnalyzer>();
+
+        // Singleton: the channel backing the queue must survive across requests; consumed by the
+        // hosted service registered below, which resolves Scoped services per job via a new scope.
+        services.AddSingleton<SubmissionAnalysisQueue>();
+        services.AddSingleton<ISubmissionAnalysisQueue>(sp => sp.GetRequiredService<SubmissionAnalysisQueue>());
+        services.Configure<SubmissionAnalysisOptions>(configuration.GetSection("SubmissionAnalysis:Retry"));
+        services.AddHostedService<SubmissionAnalysisBackgroundService>();
 
         services.Configure<RateLimiterOptions>(configuration.GetSection("RateLimiter:PublicSubmit"));
         // Singleton: submission counters must survive across requests to enforce a rolling window —

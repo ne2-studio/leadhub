@@ -1,11 +1,33 @@
 import { X } from 'lucide-react';
-import { Submission } from '../types';
+import { Submission, SubmissionStatus } from '../types';
 
 interface SubmissionDetailProps {
   submission: Submission | null;
   isLoading: boolean;
   onClose: () => void;
 }
+
+const STATUS_TAG_CLASS: Record<SubmissionStatus, string> = {
+  Ham: 'tag-on',
+  SuspectedSpam: 'tag-warning',
+  Spam: 'tag-danger',
+  PendingReview: 'tag-off',
+};
+
+const STATUS_LABEL: Record<SubmissionStatus, string> = {
+  Ham: 'Ham',
+  SuspectedSpam: 'Suspected spam',
+  Spam: 'Spam',
+  PendingReview: 'Pending review',
+};
+
+const REASON_LABEL: Record<string, string> = {
+  honeypot_filled: 'Honeypot field was filled',
+  message_contains_url: 'Message contains a URL',
+  suspicious_keyword: 'Message contains a suspicious keyword',
+  suspicious_name_pattern: 'Name looks machine-generated',
+  message_too_long: 'Message is excessively long',
+};
 
 export function SubmissionDetail({ submission, isLoading, onClose }: SubmissionDetailProps) {
   const formatDate = (val: string) =>
@@ -26,6 +48,14 @@ export function SubmissionDetail({ submission, isLoading, onClose }: SubmissionD
         ) : (
           <div className="flex flex-col gap-6">
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+              <dt className="text-text-secondary font-mono text-xs uppercase tracking-wide">Status</dt>
+              <dd>
+                <span className={`tag ${STATUS_TAG_CLASS[submission.status]}`}>{STATUS_LABEL[submission.status]}</span>
+              </dd>
+
+              <dt className="text-text-secondary font-mono text-xs uppercase tracking-wide">Spam score</dt>
+              <dd className="text-text-primary font-mono">{submission.spamScore}</dd>
+
               <dt className="text-text-secondary font-mono text-xs uppercase tracking-wide">Received</dt>
               <dd className="text-text-primary">{formatDate(submission.createdAt)}</dd>
 
@@ -35,6 +65,17 @@ export function SubmissionDetail({ submission, isLoading, onClose }: SubmissionD
               <dt className="text-text-secondary font-mono text-xs uppercase tracking-wide">User agent</dt>
               <dd className="text-text-primary break-words">{submission.userAgent ?? '—'}</dd>
             </dl>
+
+            {submission.spamReasons.length > 0 && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-text-secondary font-mono mb-2">Reasons</p>
+                <ul className="flex flex-col gap-1 text-sm text-text-primary list-disc list-inside">
+                  {submission.spamReasons.map((reason) => (
+                    <li key={reason}>{REASON_LABEL[reason] ?? reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div>
               <p className="text-xs uppercase tracking-wide text-text-secondary font-mono mb-2">Payload</p>

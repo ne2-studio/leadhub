@@ -61,7 +61,6 @@ SUBMISSION_NOT_FOUND
 SLUG_ALREADY_EXISTS
 INVALID_FORM_CONFIGURATION
 INVALID_SUBMISSION_PAYLOAD
-SPAM_DETECTED
 RATE_LIMIT_EXCEEDED
 NOTIFICATION_FAILED
 UNAUTHORIZED
@@ -97,7 +96,11 @@ Rules:
 * Body must be a JSON object.
 * Arbitrary fields are accepted.
 * Fields prefixed with `_` are reserved.
-* `_honeypot` is reserved for spam protection.
+* `_honeypot` is reserved for spam detection — a filled honeypot no longer rejects the request; it
+  contributes to the submission's spam score instead (see [Spam Analysis](#spam-analysis)).
+
+The response is always the same success shape regardless of eventual spam classification — spam
+analysis happens asynchronously after the response is sent and never blocks or changes it.
 
 ### Success Response
 
@@ -155,34 +158,6 @@ Rules:
   "error": {
     "code": "RATE_LIMIT_EXCEEDED",
     "message": "Too many requests."
-  }
-}
-```
-
-```http
-400 Bad Request
-```
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "SPAM_DETECTED",
-    "message": "Spam detected."
-  }
-}
-```
-
-```http
-500 Internal Server Error
-```
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "NOTIFICATION_FAILED",
-    "message": "Submission was stored but notification failed."
   }
 }
 ```
@@ -470,15 +445,16 @@ DELETE /api/admin/forms/{formId}
 Returns paginated submissions for a form.
 
 ```http
-GET /api/admin/forms/{formId}/submissions?page=1&pageSize=50
+GET /api/admin/forms/{formId}/submissions?page=1&pageSize=50&status=Spam
 ```
 
 ### Query Parameters
 
-| Name     | Required | Default |
-| -------- | -------: | ------: |
-| page     |       No |       1 |
-| pageSize |       No |      50 |
+| Name     | Required | Default | Notes                                                        |
+| -------- | -------: | ------: | ------------------------------------------------------------- |
+| page     |       No |       1 |                                                                 |
+| pageSize |       No |      50 |                                                                 |
+| status   |       No |    none | `Ham` \| `SuspectedSpam` \| `Spam` \| `PendingReview`; omit for all |
 
 ### Success Response
 
@@ -491,7 +467,8 @@ GET /api/admin/forms/{formId}/submissions?page=1&pageSize=50
         "id": "01K1SUBMISSION123",
         "createdAt": "2026-07-07T09:00:00Z",
         "ipAddress": "1.2.3.4",
-        "preview": "Pedro - pedro@example.com"
+        "preview": "Pedro - pedro@example.com",
+        "status": "Ham"
       }
     ],
     "page": 1,
@@ -542,10 +519,15 @@ GET /api/admin/submissions/{submissionId}
       "name": "Pedro",
       "email": "pedro@example.com",
       "message": "Hello"
-    }
+    },
+    "status": "Spam",
+    "spamScore": 25,
+    "spamReasons": ["message_contains_url", "suspicious_keyword", "message_too_long"]
   }
 }
 ```
+
+`payload` has reserved (`_`-prefixed) fields, such as `_honeypot`, stripped.
 
 ### Error Response
 
@@ -565,6 +547,43 @@ GET /api/admin/submissions/{submissionId}
 
 ---
 
+# Spam Analysis
+
+Every submission is scored asynchronously, immediately after being stored, by a background job —
+it never delays the submit response. The verdict updates the submission's `status`, `spamScore`,
+and `spamReasons`.
+
+## Status values
+
+| Status          | Meaning                                                          |
+| ---------------- | ---------------------------------------------------------------- |
+| `PendingReview`  | Stored, not yet analyzed (analysis runs moments after submit).    |
+| `Ham`            | Legitimate. Email notification (and future integrations) fire.   |
+| `SuspectedSpam`  | Borderline score. Stored only; no notification sent.              |
+| `Spam`           | High score (e.g. honeypot filled). Stored only; no notification. |
+
+## Scoring rules
+
+| Reason                     | Score | Trigger                                              |
+| --------------------------- | ----: | ----------------------------------------------------- |
+| `honeypot_filled`           |  +100 | Hidden `_honeypot` field has a value.                  |
+| `message_contains_url`      |   +10 | Submitted text contains `http://`, `https://`, or `www.`. |
+| `suspicious_keyword`        |   +10 | Submitted text contains SEO/scam/gambling vocabulary.  |
+| `suspicious_name_pattern`   |    +5 | A name-like field looks machine-generated (run-on, no space). |
+| `message_too_long`          |    +5 | A message-like field exceeds 500 characters.           |
+
+## Classification thresholds (configurable)
+
+```text
+Score 0-9    -> Ham
+Score 10-19  -> SuspectedSpam
+Score >=20   -> Spam
+```
+
+New scoring rules can be added independently, without changing existing ones.
+
+---
+
 # HTTP Status Mapping
 
 | Error Code                 | HTTP Status |
@@ -574,7 +593,6 @@ GET /api/admin/submissions/{submissionId}
 | SLUG_ALREADY_EXISTS        |         409 |
 | INVALID_FORM_CONFIGURATION |         400 |
 | INVALID_SUBMISSION_PAYLOAD |         400 |
-| SPAM_DETECTED              |         400 |
 | RATE_LIMIT_EXCEEDED        |         429 |
 | NOTIFICATION_FAILED        |         500 |
 | UNAUTHORIZED               |         401 |
@@ -597,10 +615,10 @@ GET /api/admin/submissions/{submissionId}
 
 ## Submit Form
 
-| Field     | Required | Rules                      |
-| --------- | -------: | -------------------------- |
-| body      |      Yes | Must be a JSON object      |
-| _honeypot |       No | Must be empty when present |
+| Field     | Required | Rules                                                     |
+| --------- | -------: | ---------------------------------------------------------- |
+| body      |      Yes | Must be a JSON object                                     |
+| _honeypot |       No | Should be empty; a value scores `+100` (see Spam Analysis) |
 
 ---
 

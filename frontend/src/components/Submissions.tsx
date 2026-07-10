@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Form } from '../types';
+import { Form, SubmissionStatus } from '../types';
 import { useSubmissionStore } from '../store/useSubmissionStore';
 import { SubmissionDetail } from './SubmissionDetail';
 
@@ -11,6 +11,28 @@ interface SubmissionsProps {
 
 const PAGE_SIZE = 50;
 
+const STATUS_FILTERS: { label: string; value: SubmissionStatus | undefined }[] = [
+  { label: 'All', value: undefined },
+  { label: 'Ham', value: 'Ham' },
+  { label: 'Suspected spam', value: 'SuspectedSpam' },
+  { label: 'Spam', value: 'Spam' },
+  { label: 'Pending review', value: 'PendingReview' },
+];
+
+const STATUS_TAG_CLASS: Record<SubmissionStatus, string> = {
+  Ham: 'tag-on',
+  SuspectedSpam: 'tag-warning',
+  Spam: 'tag-danger',
+  PendingReview: 'tag-off',
+};
+
+const STATUS_LABEL: Record<SubmissionStatus, string> = {
+  Ham: 'Ham',
+  SuspectedSpam: 'Suspected spam',
+  Spam: 'Spam',
+  PendingReview: 'Pending review',
+};
+
 export function Submissions({ forms }: SubmissionsProps) {
   const { formId, submissionId } = useParams<{ formId: string; submissionId?: string }>();
   const navigate = useNavigate();
@@ -19,12 +41,13 @@ export function Submissions({ forms }: SubmissionsProps) {
     selectedSubmission, isDetailLoading,
     fetchSubmissions, fetchSubmissionDetail, clearSelectedSubmission,
   } = useSubmissionStore();
+  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | undefined>(undefined);
 
   const form = forms.find((f) => f.id === formId);
 
   useEffect(() => {
-    if (formId) fetchSubmissions(formId, 1, PAGE_SIZE);
-  }, [formId]);
+    if (formId) fetchSubmissions(formId, 1, PAGE_SIZE, statusFilter);
+  }, [formId, statusFilter]);
 
   useEffect(() => {
     if (submissionId) fetchSubmissionDetail(submissionId);
@@ -36,7 +59,7 @@ export function Submissions({ forms }: SubmissionsProps) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const goToPage = (nextPage: number) => {
-    if (formId) fetchSubmissions(formId, nextPage, PAGE_SIZE);
+    if (formId) fetchSubmissions(formId, nextPage, PAGE_SIZE, statusFilter);
   };
 
   return (
@@ -54,6 +77,18 @@ export function Submissions({ forms }: SubmissionsProps) {
         <p className="text-xs text-text-secondary">{totalItems} total submission{totalItems === 1 ? '' : 's'}.</p>
       </div>
 
+      <div className="flex gap-2">
+        {STATUS_FILTERS.map(({ label, value }) => (
+          <button
+            key={label}
+            className={`tag cursor-pointer ${value === statusFilter ? (value ? STATUS_TAG_CLASS[value] : 'tag-on') : 'tag-off'}`}
+            onClick={() => setStatusFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="card p-0 overflow-hidden">
         <table>
           <thead>
@@ -61,6 +96,7 @@ export function Submissions({ forms }: SubmissionsProps) {
               <th>Received</th>
               <th>IP address</th>
               <th>Preview</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -73,11 +109,14 @@ export function Submissions({ forms }: SubmissionsProps) {
                 <td className="font-mono text-xs text-text-secondary">{formatDate(submission.createdAt)}</td>
                 <td className="font-mono text-xs text-text-secondary">{submission.ipAddress ?? '—'}</td>
                 <td className="text-text-primary">{submission.preview}</td>
+                <td>
+                  <span className={`tag ${STATUS_TAG_CLASS[submission.status]}`}>{STATUS_LABEL[submission.status]}</span>
+                </td>
               </tr>
             ))}
             {!isLoading && submissions.length === 0 && (
               <tr>
-                <td colSpan={3} className="p-12 text-center text-text-secondary italic text-xs">
+                <td colSpan={4} className="p-12 text-center text-text-secondary italic text-xs">
                   No submissions yet.
                 </td>
               </tr>

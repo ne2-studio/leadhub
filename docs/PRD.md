@@ -76,6 +76,7 @@ Submissions store:
 * Timestamp
 * IP address
 * User-Agent
+* Spam status, score, and reasons (see [Spam Protection](#spam-protection))
 
 ---
 
@@ -193,6 +194,9 @@ Display:
 * Submission date
 * IP address
 * Short preview of submitted data
+* Spam status
+
+Supports filtering by status: Ham, SuspectedSpam, Spam, PendingReview.
 
 ### Submission Detail View
 
@@ -202,6 +206,7 @@ Display:
 * Timestamp
 * IP address
 * User-Agent
+* Spam status, score, and reasons
 
 ---
 
@@ -248,15 +253,35 @@ The configured URL should be exposed as part of the successful submission respon
 
 ## Spam Protection
 
+### Classification
+
+Every submission is automatically classified, asynchronously and after being stored, as one of:
+
+* `PendingReview` — stored, analysis not yet complete.
+* `Ham` — legitimate. Triggers email notification.
+* `SuspectedSpam` — borderline. Stored only, no notification.
+* `Spam` — high-confidence spam. Stored only, no notification.
+
+Classification never blocks or delays the submitter's response — the thank-you redirect always
+fires immediately after the submission is stored.
+
+### Scoring
+
+A submission's spam score is the sum of independent rule hits:
+
+* Honeypot field filled (`+100`).
+* Submitted text contains a URL (`+10`).
+* Submitted text contains a suspicious keyword — SEO/backlink/casino/crypto/etc. (`+10`).
+* A name-like field looks machine-generated, e.g. `RobertSkect` (`+5`).
+* A message-like field exceeds 500 characters (`+5`).
+
+Thresholds (configurable): score 0-9 is Ham, 10-19 is SuspectedSpam, 20+ is Spam.
+
 ### Honeypot
 
-The system must support honeypot-based spam detection.
-
-If the honeypot field contains any value:
-
-* The submission is rejected.
-* The submission is not stored.
-* No email notification is sent.
+The honeypot field (`_honeypot`) is still supported as a hidden field real visitors never fill in,
+but a filled value now contributes to the spam score instead of rejecting the request outright —
+every submission is stored and goes through the same classification pipeline.
 
 ### Rate Limiting
 
@@ -313,8 +338,9 @@ Features:
 * List submissions
 * Open submission details
 * Navigate submissions by form
+* Filter by spam status (Ham / SuspectedSpam / Spam / PendingReview)
 
-No search, filtering, tagging, or export functionality is required in the MVP.
+No search, tagging, or export functionality is required in the MVP.
 
 ---
 

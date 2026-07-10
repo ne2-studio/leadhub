@@ -1,4 +1,4 @@
-import { Form, PaginatedSubmissions, Submission } from './types';
+import { Form, PaginatedSubmissions, Submission, SubmissionStatus } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5050';
 
@@ -64,15 +64,17 @@ export const api = {
   },
 
   submissions: {
-    list: async (formId: string, page = 1, pageSize = 50): Promise<PaginatedSubmissions> =>
-      fetch(`${API_BASE_URL}/api/admin/forms/${formId}/submissions?page=${page}&pageSize=${pageSize}`, {
+    list: async (formId: string, page = 1, pageSize = 50, status?: SubmissionStatus): Promise<PaginatedSubmissions> => {
+      const statusParam = status ? `&status=${status}` : '';
+      return fetch(`${API_BASE_URL}/api/admin/forms/${formId}/submissions?page=${page}&pageSize=${pageSize}${statusParam}`, {
         headers: getHeaders(),
       })
         .then(handleResponse)
         .then(data => new PaginatedSubmissions({
           ...data,
           items: data.items.map((s: any) => new Submission(s)),
-        })),
+        }));
+    },
 
     get: async (id: string): Promise<Submission> =>
       fetch(`${API_BASE_URL}/api/admin/submissions/${id}`, { headers: getHeaders() })

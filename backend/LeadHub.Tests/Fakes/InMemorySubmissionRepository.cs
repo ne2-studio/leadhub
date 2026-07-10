@@ -14,17 +14,18 @@ public class InMemorySubmissionRepository : ISubmissionRepository
 
     public Task<Submission?> GetById(string id) => Task.FromResult(storage.GetValueOrDefault(id));
 
-    public Task<PaginatedResult<SubmissionSummaryProjection>> ListByForm(string formId, int page, int pageSize)
+    public Task<PaginatedResult<SubmissionSummaryProjection>> ListByForm(string formId, int page, int pageSize, SubmissionStatus? status)
     {
         var matching = storage.Values
             .Where(s => s.FormId == formId)
+            .Where(s => status == null || s.Status == status)
             .OrderByDescending(s => s.CreatedAt)
             .ToList();
 
         var items = matching
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(s => new SubmissionSummaryProjection(s.Id, s.CreatedAt, s.IpAddress, "preview"))
+            .Select(s => new SubmissionSummaryProjection(s.Id, s.CreatedAt, s.IpAddress, "preview", s.Status))
             .ToList();
 
         IReadOnlyList<SubmissionSummaryProjection> readOnlyItems = items;
@@ -38,5 +39,13 @@ public class InMemorySubmissionRepository : ISubmissionRepository
     {
         var dates = storage.Values.Where(s => s.FormId == formId).Select(s => s.CreatedAt).ToList();
         return Task.FromResult(dates.Count > 0 ? dates.Max() : (DateTimeOffset?)null);
+    }
+
+    public Task UpdateAnalysis(string submissionId, SpamVerdict verdict)
+    {
+        if (storage.TryGetValue(submissionId, out var submission))
+            storage[submissionId] = submission with { Status = verdict.Status, SpamScore = verdict.Score, SpamReasons = verdict.Reasons };
+
+        return Task.CompletedTask;
     }
 }

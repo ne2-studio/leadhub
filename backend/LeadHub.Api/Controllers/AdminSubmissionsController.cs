@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using LeadHub.Ports.Input;
+using LeadHub.Ports.Output;
 
 namespace LeadHub.Api.Controllers;
 
@@ -10,9 +11,10 @@ namespace LeadHub.Api.Controllers;
 public class AdminSubmissionsController(IAdminSubmissions adminSubmissions) : ControllerBase
 {
     [HttpGet("forms/{formId}/submissions")]
-    public async Task<IActionResult> ListByForm(string formId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<IActionResult> ListByForm(
+        string formId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] SubmissionStatus? status = null)
     {
-        var result = await adminSubmissions.ListSubmissions(new ListSubmissionsInput(formId, page, pageSize));
+        var result = await adminSubmissions.ListSubmissions(new ListSubmissionsInput(formId, page, pageSize, status));
         return this.ToActionResult(result);
     }
 

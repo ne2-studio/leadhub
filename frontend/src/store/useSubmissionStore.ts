@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Form, Submission } from '../types';
+import { Form, Submission, SubmissionStatus } from '../types';
 import { api } from '../api';
 
 interface SubmissionStore {
@@ -7,6 +7,7 @@ interface SubmissionStore {
   page: number;
   pageSize: number;
   totalItems: number;
+  statusFilter: SubmissionStatus | undefined;
   isLoading: boolean;
   error: string | null;
 
@@ -16,7 +17,7 @@ interface SubmissionStore {
   recentSubmissions: Submission[];
   isRecentLoading: boolean;
 
-  fetchSubmissions: (formId: string, page?: number, pageSize?: number) => Promise<void>;
+  fetchSubmissions: (formId: string, page?: number, pageSize?: number, status?: SubmissionStatus) => Promise<void>;
   fetchSubmissionDetail: (id: string) => Promise<void>;
   clearSelectedSubmission: () => void;
   fetchRecentSubmissions: (forms: Form[], limit?: number) => Promise<void>;
@@ -27,6 +28,7 @@ export const useSubmissionStore = create<SubmissionStore>((set) => ({
   page: 1,
   pageSize: 50,
   totalItems: 0,
+  statusFilter: undefined,
   isLoading: false,
   error: null,
 
@@ -36,10 +38,10 @@ export const useSubmissionStore = create<SubmissionStore>((set) => ({
   recentSubmissions: [],
   isRecentLoading: false,
 
-  fetchSubmissions: async (formId, page = 1, pageSize = 50) => {
-    set({ isLoading: true, error: null });
+  fetchSubmissions: async (formId, page = 1, pageSize = 50, status) => {
+    set({ isLoading: true, error: null, statusFilter: status });
     try {
-      const result = await api.submissions.list(formId, page, pageSize);
+      const result = await api.submissions.list(formId, page, pageSize, status);
       set({
         submissions: result.items,
         page: result.page,

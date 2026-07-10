@@ -12,16 +12,22 @@ Notable pieces:
 - `Result<T, Error>` / `UnitResult<Error>` (CSharpFunctionalExtensions) for every expected failure
   path — typed error codes, no exceptions for control flow.
 - An output port per external effect (`IClock`, `IIdGenerator`, `IFormRepository`,
-  `ISubmissionRepository`, `IEmailNotificationSender`, `ISpamProtection`, `IRateLimiter`).
+  `ISubmissionRepository`, `IEmailNotificationSender`, `ISpamAnalyzer`, `ISubmissionAnalysisQueue`,
+  `IRateLimiter`).
 - A caching **decorator** (`CachedFormRepository`) composed at the DI root, registered `Singleton`
   as a deliberate exception to the default `Scoped` lifetime — `GetBySlug` is hit on every public
   submission.
 - The **Null Object pattern** for feature-flagged behavior (`IEmailNotificationSender` swaps between
   `ResendEmailNotificationSender` and `NullEmailNotificationSender` based on
   `Features:EmailNotifications:Enabled`, decided once in `ServiceRegistration`).
-- Honeypot-based spam detection (`_honeypot` reserved field) and an in-memory, per-form/per-IP rate
-  limiter (`InMemoryRateLimiter`), both required by the public submit use case — on top of the
-  infra-level, ASP.NET Core rate limiter applied to the public route.
+- Asynchronous spam analysis: the public submit use case stores every submission as
+  `PendingReview` and enqueues it (`ISubmissionAnalysisQueue`, an in-process channel) for a
+  background worker (`SubmissionAnalysisBackgroundService`) to score deterministically via a set of
+  independent `ISpamRule`s (honeypot filled, URL/keyword/name-pattern/length heuristics) and
+  classify into `Ham` / `SuspectedSpam` / `Spam`. Only `Ham` triggers the email notification.
+  Failures retry with backoff. An in-memory, per-form/per-IP rate limiter (`InMemoryRateLimiter`)
+  still runs synchronously in the submit path, on top of the infra-level ASP.NET Core rate limiter
+  applied to the public route.
 - Two-tier testing: hand-written fakes for core/application logic (`LeadHub.Tests`), NSubstitute
   mocks for the infra decorator and plain unit tests for the other infra adapters
   (`LeadHub.Infra.Tests`).

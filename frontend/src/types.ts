@@ -38,6 +38,8 @@ export class Form {
   }
 }
 
+export type SubmissionStatus = 'PendingReview' | 'Ham' | 'SuspectedSpam' | 'Spam';
+
 export class Submission {
   id: string;
   formId: string | null;
@@ -46,6 +48,9 @@ export class Submission {
   userAgent: string | null;
   preview: string | null;
   payload: Record<string, unknown> | null;
+  status: SubmissionStatus;
+  spamScore: number;
+  spamReasons: string[];
 
   constructor(data: {
     id: string;
@@ -55,6 +60,9 @@ export class Submission {
     userAgent?: string | null;
     preview?: string | null;
     payload?: Record<string, unknown> | null;
+    status?: SubmissionStatus;
+    spamScore?: number;
+    spamReasons?: string[];
   }) {
     this.id = data.id;
     this.formId = data.formId ?? null;
@@ -63,6 +71,9 @@ export class Submission {
     this.userAgent = data.userAgent ?? null;
     this.preview = data.preview ?? null;
     this.payload = data.payload ?? null;
+    this.status = data.status ?? 'PendingReview';
+    this.spamScore = data.spamScore ?? 0;
+    this.spamReasons = data.spamReasons ?? [];
   }
 }
 

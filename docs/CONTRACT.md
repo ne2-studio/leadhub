@@ -19,10 +19,10 @@ Example errors:
 
 ```csharp
 FormNotFound
+SubmissionNotFound
 SlugAlreadyExists
 InvalidFormConfiguration
 InvalidSubmissionPayload
-SpamDetected
 RateLimitExceeded
 NotificationFailed
 Unauthorized
@@ -246,30 +246,28 @@ Behavior:
 
 1. Find form by slug.
 2. Validate payload.
-3. Check honeypot.
-4. Check rate limit.
-5. Store submission.
-6. Send notification email if enabled.
-7. Return configured thank-you URL.
+3. Check rate limit.
+4. Store submission with `Status = PendingReview`.
+5. Enqueue an asynchronous spam analysis job (`ISubmissionAnalysisQueue`).
+6. Return configured thank-you URL.
 
 Rules:
 
 * Payload must be a JSON object.
 * Fields are dynamic.
-* Fields starting with `_` are reserved.
-* `_honeypot` is reserved for spam protection.
-* If `_honeypot` has a value, reject the submission.
-* Rejected spam submissions are not stored.
-* Failed email notification must not delete the stored submission.
+* Fields starting with `_` are reserved (e.g. `_honeypot`) and are stored as-is so the async spam
+  analysis job can inspect them — they are stripped only at display boundaries (admin UI, email
+  notifications), never at persistence.
+* Spam classification never blocks or delays the submit response — the visitor always gets the
+  normal success flow. Email notification and any future webhook/integration triggers happen
+  later, from the analysis job, only for a `Ham` verdict. See [Submission Analysis](#submission-analysis).
 
 Possible errors:
 
 ```csharp
 FormNotFound
 InvalidSubmissionPayload
-SpamDetected
 RateLimitExceeded
-NotificationFailed
 UnexpectedError
 ```
 
@@ -281,16 +279,20 @@ UnexpectedError
 public sealed record ListSubmissionsInput(
     string FormId,
     int Page,
-    int PageSize
+    int PageSize,
+    SubmissionStatus? Status
 );
 ```
+
+`Status` is an optional filter (`Ham` / `SuspectedSpam` / `Spam` / `PendingReview`); `null` returns submissions of every status.
 
 ```csharp
 public sealed record SubmissionSummary(
     string Id,
     DateTimeOffset CreatedAt,
     string? IpAddress,
-    string Preview
+    string Preview,
+    SubmissionStatus Status
 );
 ```
 
@@ -332,9 +334,14 @@ public sealed record SubmissionDetails(
     DateTimeOffset CreatedAt,
     string? IpAddress,
     string? UserAgent,
-    IReadOnlyDictionary<string, object?> Payload
+    IReadOnlyDictionary<string, object?> Payload,
+    SubmissionStatus Status,
+    int SpamScore,
+    IReadOnlyList<string> SpamReasons
 );
 ```
+
+`Payload` has reserved (`_`-prefixed) fields stripped before being returned to the admin UI.
 
 Returns:
 
@@ -346,6 +353,60 @@ Possible errors:
 
 ```csharp
 SubmissionNotFound
+```
+
+---
+
+## Submission Analysis
+
+The background job that scores a pending submission for spam. Invoked by the queue worker, not by
+a controller.
+
+```csharp
+public interface ISubmissionAnalysis
+{
+    Task<Result<Unit>> AnalyzeSubmission(AnalyzeSubmissionInput input);
+}
+```
+
+```csharp
+public sealed record AnalyzeSubmissionInput(string SubmissionId);
+```
+
+Behavior:
+
+1. Load the submission.
+2. Run `ISpamAnalyzer.Analyze` to produce a `SpamVerdict`.
+3. Persist the verdict via `ISubmissionRepository.UpdateAnalysis`.
+4. If the verdict's status is `Ham` and the form has notifications enabled, send the email
+   notification (payload with reserved fields stripped).
+
+Possible errors:
+
+```csharp
+SubmissionNotFound
+NotificationFailed
+```
+
+A failure result (including an unhandled exception) tells the queue worker to retry. Retrying is
+safe: analysis is deterministic, and re-recording the same verdict is idempotent.
+
+```csharp
+public enum SubmissionStatus
+{
+    PendingReview,
+    Ham,
+    SuspectedSpam,
+    Spam
+}
+```
+
+```csharp
+public sealed record SpamVerdict(
+    int Score,
+    SubmissionStatus Status,
+    IReadOnlyList<string> Reasons
+);
 ```
 
 ---
@@ -391,12 +452,15 @@ public interface ISubmissionRepository
     Task<PaginatedResult<SubmissionSummaryProjection>> ListByForm(
         string formId,
         int page,
-        int pageSize
+        int pageSize,
+        SubmissionStatus? status
     );
 
     Task<int> CountByForm(string formId);
 
     Task<DateTimeOffset?> GetLastSubmissionDate(string formId);
+
+    Task UpdateAnalysis(string submissionId, SpamVerdict verdict);
 }
 ```
 
@@ -430,31 +494,39 @@ public sealed record SendSubmissionNotificationInput(
 
 ---
 
-## ISpamProtection
+## ISpamAnalyzer
 
-Detects spam submissions.
+Scores a submission for spam signals and classifies it. Deterministic: the same submission always
+produces the same verdict.
 
 ```csharp
-public interface ISpamProtection
+public interface ISpamAnalyzer
 {
-    Task<Result<Unit>> EnsureNotSpam(SpamCheckInput input);
+    SpamVerdict Analyze(Submission submission);
 }
 ```
 
+The default implementation (`RuleBasedSpamAnalyzer`) sums the score contributed by every
+registered `ISpamRule` (honeypot filled, message contains a URL, suspicious keyword, suspicious
+name pattern, message too long) and classifies the total against configurable thresholds
+(`SuspectedSpamThreshold`, `SpamThreshold`). New rules are added without modifying existing ones.
+
+---
+
+## ISubmissionAnalysisQueue
+
+Hands a freshly stored submission off for asynchronous spam analysis.
+
 ```csharp
-public sealed record SpamCheckInput(
-    string FormSlug,
-    IReadOnlyDictionary<string, object?> Payload,
-    string? IpAddress,
-    string? UserAgent
-);
+public interface ISubmissionAnalysisQueue
+{
+    ValueTask Enqueue(string submissionId, CancellationToken cancellationToken = default);
+}
 ```
 
-Possible errors:
-
-```csharp
-SpamDetected
-```
+Enqueueing must not block or fail the submit request. The default implementation is an in-process
+FIFO queue drained by a background worker that retries a failed analysis attempt (with backoff) up
+to a configured limit before giving up and logging.
 
 ---
 
@@ -518,21 +590,36 @@ public interface IIdGenerator
 External website
     -> IPublicForms.SubmitForm
         -> IFormRepository.GetBySlug
-        -> ISpamProtection.EnsureNotSpam
         -> IRateLimiter.EnsureAllowed
-        -> ISubmissionRepository.Save
-        -> IEmailNotificationSender.SendSubmissionNotification
+        -> ISubmissionRepository.Save (Status = PendingReview)
+        -> ISubmissionAnalysisQueue.Enqueue
         -> SubmitFormOutput
+```
+
+The visitor always receives the normal success flow regardless of eventual spam classification —
+analysis happens afterward, out of the request path.
+
+## Submission Analysis Flow
+
+```text
+Queue worker
+    -> ISubmissionAnalysis.AnalyzeSubmission
+        -> ISubmissionRepository.GetById
+        -> ISpamAnalyzer.Analyze
+        -> ISubmissionRepository.UpdateAnalysis
+        -> IEmailNotificationSender.SendSubmissionNotification   (only if Status == Ham)
 ```
 
 Important rule:
 
 ```text
-Submission persistence is the source of truth.
+Verdict persistence is the source of truth.
 Email notification is a side effect.
 ```
 
-If notification fails after the submission has been stored, the use case may return `NotificationFailed`, but the submission must remain persisted.
+If notification fails after the verdict has been stored, the use case returns `NotificationFailed`
+and the queue worker retries the whole job; the verdict remains persisted either way, and
+re-analysis is safe because scoring is deterministic.
 
 ---
 
