@@ -29,7 +29,7 @@ public class SubmissionAnalysisManagerTests
     }
 
     private Task SeedForm(bool notificationsEnabled = false, string? notificationEmail = null) =>
-        formRepository.Save(new Form(FormId, "Contact", "contact", null, notificationsEnabled, notificationEmail, null, DateTimeOffset.UtcNow, null));
+        formRepository.Save(new Form(FormId, "owner-1", "Contact", "contact", null, notificationsEnabled, notificationEmail, null, DateTimeOffset.UtcNow, null));
 
     private Task SeedSubmission(IReadOnlyDictionary<string, object?>? payload = null) =>
         submissionRepository.Save(new Submission(

@@ -13,7 +13,7 @@ public class CachedFormRepositoryTests
     {
         _repository = Substitute.For<IFormRepository>();
         _cachedRepository = new CachedFormRepository(_repository);
-        _testForm = new Form("form-1", "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null);
+        _testForm = new Form("form-1", "owner-1", "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null);
     }
 
     [Fact]
@@ -103,5 +103,14 @@ public class CachedFormRepositoryTests
 
         Assert.True(result);
         await _repository.Received(1).ExistsBySlug("contact", null);
+    }
+
+    [Fact]
+    public async Task GetOwnedById_ShouldReturnNull_WhenCachedFormBelongsToAnotherOwner()
+    {
+        await _cachedRepository.Save(_testForm);
+
+        Assert.Equal(_testForm, await _cachedRepository.GetOwnedById("owner-1", _testForm.Id));
+        Assert.Null(await _cachedRepository.GetOwnedById("owner-2", _testForm.Id));
     }
 }

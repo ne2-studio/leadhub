@@ -25,4 +25,8 @@ public static class ControllerResultExtensions
         var (statusCode, code) = ErrorCodeMapper.Map(result.Error.Code);
         return new ObjectResult(ApiResponse<object?>.Fail(new ApiError(code, result.Error.Message))) { StatusCode = statusCode };
     }
+
+    /// <summary>For authenticated requests whose token carries no subject to scope data by.</summary>
+    public static IActionResult UnauthorizedResult(this ControllerBase controller) =>
+        controller.ToActionResult(UnitResult.Failure(Errors.Unauthorized()));
 }

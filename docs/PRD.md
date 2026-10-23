@@ -42,9 +42,10 @@ Capabilities:
 * Configure notifications.
 * Configure thank-you URLs.
 
-The MVP assumes a single administrator account.
+Any authenticated user is an administrator of their own forms only.
 
-No multi-user support is required.
+Each form has exactly one owner (the user who created it). Users can't see, edit, delete or browse
+submissions of forms they don't own. There is no sharing nor ownership transfer.
 
 ---
 
@@ -348,7 +349,7 @@ No search, tagging, or export functionality is required in the MVP.
 
 The following features are explicitly out of scope for the MVP:
 
-* Multi-user support
+* Shared forms / ownership transfer
 * Teams
 * Workspaces
 * Webhooks

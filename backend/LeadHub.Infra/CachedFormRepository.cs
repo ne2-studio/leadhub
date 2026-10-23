@@ -26,6 +26,12 @@ public class CachedFormRepository(IFormRepository repository) : IFormRepository
         return form;
     }
 
+    public async Task<Form?> GetOwnedById(string ownerId, string id)
+    {
+        var form = await GetById(id);
+        return form?.OwnerId == ownerId ? form : null;
+    }
+
     public async Task<Form?> GetBySlug(string slug)
     {
         if (_bySlug.TryGetValue(slug, out var cached))
@@ -41,7 +47,7 @@ public class CachedFormRepository(IFormRepository repository) : IFormRepository
     public Task<bool> ExistsBySlug(string slug, string? excludingFormId = null) =>
         repository.ExistsBySlug(slug, excludingFormId);
 
-    public Task<IReadOnlyList<FormSummaryProjection>> List() => repository.List();
+    public Task<IReadOnlyList<FormSummaryProjection>> List(string ownerId) => repository.List(ownerId);
 
     public async Task Save(Form form)
     {

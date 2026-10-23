@@ -39,7 +39,7 @@ public class PublicFormsManagerTests
 
     private Task SeedForm(bool notificationsEnabled = false, string? notificationEmail = null, string? thankYouUrl = null) =>
         formRepository.Save(new Form(
-            FormId, "Contact", FormSlug, null, notificationsEnabled, notificationEmail, thankYouUrl, clock.UtcNow, null));
+            FormId, "owner-1", "Contact", FormSlug, null, notificationsEnabled, notificationEmail, thankYouUrl, clock.UtcNow, null));
 
     [Fact]
     public async Task SubmitForm_ShouldFail_WhenFormDoesNotExist()

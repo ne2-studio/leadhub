@@ -2,6 +2,7 @@ namespace LeadHub.Ports.Output;
 
 public sealed record Form(
     string Id,
+    string OwnerId,
     string Name,
     string Slug,
     string? Description,

@@ -2,7 +2,7 @@ using LeadHub.Ports.Output;
 
 namespace LeadHub.Ports.Input;
 
-public sealed record ListSubmissionsInput(string FormId, int Page, int PageSize, SubmissionStatus? Status);
+public sealed record ListSubmissionsInput(string OwnerId, string FormId, int Page, int PageSize, SubmissionStatus? Status);
 
 public sealed record SubmissionSummary(
     string Id,
@@ -12,7 +12,7 @@ public sealed record SubmissionSummary(
     SubmissionStatus Status
 );
 
-public sealed record GetSubmissionInput(string SubmissionId);
+public sealed record GetSubmissionInput(string OwnerId, string SubmissionId);
 
 public sealed record SubmissionDetails(
     string Id,

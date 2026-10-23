@@ -14,14 +14,20 @@ public class AdminSubmissionsController(IAdminSubmissions adminSubmissions) : Co
     public async Task<IActionResult> ListByForm(
         string formId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] SubmissionStatus? status = null)
     {
-        var result = await adminSubmissions.ListSubmissions(new ListSubmissionsInput(formId, page, pageSize, status));
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
+        var result = await adminSubmissions.ListSubmissions(new ListSubmissionsInput(ownerId, formId, page, pageSize, status));
         return this.ToActionResult(result);
     }
 
     [HttpGet("submissions/{submissionId}")]
     public async Task<IActionResult> Get(string submissionId)
     {
-        var result = await adminSubmissions.GetSubmission(new GetSubmissionInput(submissionId));
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
+        var result = await adminSubmissions.GetSubmission(new GetSubmissionInput(ownerId, submissionId));
         return this.ToActionResult(result);
     }
 }

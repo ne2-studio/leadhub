@@ -26,6 +26,10 @@ All admin endpoints require authentication.
 Authorization: Bearer <token>
 ```
 
+Admin endpoints are scoped to the caller (token `sub` claim): each form has a single owner, and
+forms or submissions owned by another user respond `404` (`FORM_NOT_FOUND` /
+`SUBMISSION_NOT_FOUND`), exactly as if they didn't exist. A token without `sub` gets `401`.
+
 ---
 
 # Response Format

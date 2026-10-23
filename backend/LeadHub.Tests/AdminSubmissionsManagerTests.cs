@@ -8,6 +8,8 @@ namespace LeadHub.Tests;
 
 public class AdminSubmissionsManagerTests
 {
+    private const string OwnerId = "owner-1";
+    private const string OtherOwnerId = "owner-2";
     private const string FormId = "form-1";
 
     private readonly InMemoryFormRepository formRepository;
@@ -21,6 +23,9 @@ public class AdminSubmissionsManagerTests
         manager = new AdminSubmissionsManager(NullLogger<AdminSubmissionsManager>.Instance, formRepository, submissionRepository);
     }
 
+    private Task SaveOwnedForm() =>
+        formRepository.Save(new Form(FormId, OwnerId, "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null));
+
     private static Submission MakeSubmission(
         string id, DateTimeOffset createdAt, IReadOnlyDictionary<string, object?>? payload = null,
         SubmissionStatus status = SubmissionStatus.Ham, int score = 0, IReadOnlyList<string>? reasons = null) =>
@@ -30,7 +35,7 @@ public class AdminSubmissionsManagerTests
     [Fact]
     public async Task ListSubmissions_ShouldFail_WhenFormDoesNotExist()
     {
-        var result = await manager.ListSubmissions(new ListSubmissionsInput(FormId, 1, 50, null));
+        var result = await manager.ListSubmissions(new ListSubmissionsInput(OwnerId, FormId, 1, 50, null));
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorCode.FormNotFound, result.Error.Code);
@@ -39,7 +44,7 @@ public class AdminSubmissionsManagerTests
     [Fact]
     public async Task ListSubmissions_ShouldReturnPaginatedResults()
     {
-        await formRepository.Save(new Form(FormId, "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null));
+        await formRepository.Save(new Form(FormId, OwnerId, "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null));
 
         for (var i = 0; i < 5; i++)
         {
@@ -48,7 +53,7 @@ public class AdminSubmissionsManagerTests
                 new Dictionary<string, object?> { ["name"] = $"Person {i}" }, SubmissionStatus.Ham, 0, Array.Empty<string>()));
         }
 
-        var result = await manager.ListSubmissions(new ListSubmissionsInput(FormId, 1, 2, null));
+        var result = await manager.ListSubmissions(new ListSubmissionsInput(OwnerId, FormId, 1, 2, null));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.Items.Count);
@@ -58,12 +63,12 @@ public class AdminSubmissionsManagerTests
     [Fact]
     public async Task ListSubmissions_ShouldFilterByStatus()
     {
-        await formRepository.Save(new Form(FormId, "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null));
+        await formRepository.Save(new Form(FormId, OwnerId, "Contact", "contact", null, false, null, null, DateTimeOffset.UtcNow, null));
 
         await submissionRepository.Save(MakeSubmission("sub-ham", DateTimeOffset.UtcNow, status: SubmissionStatus.Ham));
         await submissionRepository.Save(MakeSubmission("sub-spam", DateTimeOffset.UtcNow, status: SubmissionStatus.Spam, score: 25));
 
-        var result = await manager.ListSubmissions(new ListSubmissionsInput(FormId, 1, 50, SubmissionStatus.Spam));
+        var result = await manager.ListSubmissions(new ListSubmissionsInput(OwnerId, FormId, 1, 50, SubmissionStatus.Spam));
 
         Assert.True(result.IsSuccess);
         Assert.Single(result.Value.Items);
@@ -74,7 +79,7 @@ public class AdminSubmissionsManagerTests
     [Fact]
     public async Task GetSubmission_ShouldFail_WhenSubmissionDoesNotExist()
     {
-        var result = await manager.GetSubmission(new GetSubmissionInput("missing"));
+        var result = await manager.GetSubmission(new GetSubmissionInput(OwnerId, "missing"));
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorCode.SubmissionNotFound, result.Error.Code);
@@ -83,12 +88,13 @@ public class AdminSubmissionsManagerTests
     [Fact]
     public async Task GetSubmission_ShouldReturnFullPayload_AndSpamVerdict()
     {
+        await SaveOwnedForm();
         var payload = new Dictionary<string, object?> { ["name"] = "Pedro", ["email"] = "pedro@example.com" };
         await submissionRepository.Save(new Submission(
             "sub-1", FormId, DateTimeOffset.UtcNow, "1.2.3.4", "agent", payload,
             SubmissionStatus.Spam, 25, ["message_contains_url", "message_too_long"]));
 
-        var result = await manager.GetSubmission(new GetSubmissionInput("sub-1"));
+        var result = await manager.GetSubmission(new GetSubmissionInput(OwnerId, "sub-1"));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(FormId, result.Value.FormId);
@@ -101,13 +107,38 @@ public class AdminSubmissionsManagerTests
     [Fact]
     public async Task GetSubmission_ShouldStripReservedFields_FromPayload()
     {
+        await SaveOwnedForm();
         var payload = new Dictionary<string, object?> { ["name"] = "Pedro", ["_honeypot"] = "" };
         await submissionRepository.Save(new Submission(
             "sub-1", FormId, DateTimeOffset.UtcNow, "1.2.3.4", "agent", payload, SubmissionStatus.Ham, 0, Array.Empty<string>()));
 
-        var result = await manager.GetSubmission(new GetSubmissionInput("sub-1"));
+        var result = await manager.GetSubmission(new GetSubmissionInput(OwnerId, "sub-1"));
 
         Assert.True(result.IsSuccess);
         Assert.False(result.Value.Payload.ContainsKey("_honeypot"));
+    }
+
+    [Fact]
+    public async Task ListSubmissions_ShouldFail_WhenFormBelongsToAnotherOwner()
+    {
+        await SaveOwnedForm();
+        await submissionRepository.Save(MakeSubmission("sub-1", DateTimeOffset.UtcNow));
+
+        var result = await manager.ListSubmissions(new ListSubmissionsInput(OtherOwnerId, FormId, 1, 50, null));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.FormNotFound, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task GetSubmission_ShouldFail_WhenFormBelongsToAnotherOwner()
+    {
+        await SaveOwnedForm();
+        await submissionRepository.Save(MakeSubmission("sub-1", DateTimeOffset.UtcNow));
+
+        var result = await manager.GetSubmission(new GetSubmissionInput(OtherOwnerId, "sub-1"));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.SubmissionNotFound, result.Error.Code);
     }
 }

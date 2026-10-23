@@ -13,22 +13,31 @@ public class AdminFormsController(IAdminForms adminForms) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List()
     {
-        var result = await adminForms.ListForms();
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
+        var result = await adminForms.ListForms(new ListFormsInput(ownerId));
         return this.ToActionResult(result);
     }
 
     [HttpGet("{formId}")]
     public async Task<IActionResult> Get(string formId)
     {
-        var result = await adminForms.GetForm(new GetFormInput(formId));
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
+        var result = await adminForms.GetForm(new GetFormInput(ownerId, formId));
         return this.ToActionResult(result);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateFormRequest request)
     {
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
         var result = await adminForms.CreateForm(new CreateFormInput(
-            request.Name, request.Slug, request.Description,
+            ownerId, request.Name, request.Slug, request.Description,
             request.NotificationsEnabled, request.NotificationEmail, request.ThankYouUrl));
 
         return this.ToActionResult(result, StatusCodes.Status201Created);
@@ -37,8 +46,11 @@ public class AdminFormsController(IAdminForms adminForms) : ControllerBase
     [HttpPut("{formId}")]
     public async Task<IActionResult> Update(string formId, [FromBody] UpdateFormRequest request)
     {
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
         var result = await adminForms.UpdateForm(new UpdateFormInput(
-            formId, request.Name, request.Slug, request.Description,
+            ownerId, formId, request.Name, request.Slug, request.Description,
             request.NotificationsEnabled, request.NotificationEmail, request.ThankYouUrl));
 
         return this.ToActionResult(result);
@@ -47,7 +59,10 @@ public class AdminFormsController(IAdminForms adminForms) : ControllerBase
     [HttpDelete("{formId}")]
     public async Task<IActionResult> Delete(string formId)
     {
-        var result = await adminForms.DeleteForm(new DeleteFormInput(formId));
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
+        var result = await adminForms.DeleteForm(new DeleteFormInput(ownerId, formId));
         return this.ToActionResult(result);
     }
 }
