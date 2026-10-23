@@ -24,6 +24,7 @@ public class AdminFormsManager(
 
         var form = new Form(
             idGenerator.NewId(),
+            input.OwnerId,
             input.Name,
             input.Slug,
             input.Description,
@@ -43,7 +44,7 @@ public class AdminFormsManager(
     {
         logger.LogInformation("UpdateForm - Updating form {FormId}", input.FormId);
 
-        var existing = await formRepository.GetById(input.FormId);
+        var existing = await formRepository.GetOwnedById(input.OwnerId, input.FormId);
         if (existing == null)
             return Result.Failure<FormDetails, Error>(Errors.FormNotFound(input.FormId));
 
@@ -75,7 +76,7 @@ public class AdminFormsManager(
     {
         logger.LogInformation("DeleteForm - Deleting form {FormId}", input.FormId);
 
-        var existing = await formRepository.GetById(input.FormId);
+        var existing = await formRepository.GetOwnedById(input.OwnerId, input.FormId);
         if (existing == null)
             return UnitResult.Failure(Errors.FormNotFound(input.FormId));
 
@@ -85,16 +86,16 @@ public class AdminFormsManager(
         return UnitResult.Success<Error>();
     }
 
-    public async Task<Result<IReadOnlyList<FormSummary>, Error>> ListForms()
+    public async Task<Result<IReadOnlyList<FormSummary>, Error>> ListForms(ListFormsInput input)
     {
-        var forms = await formRepository.List();
+        var forms = await formRepository.List(input.OwnerId);
         IReadOnlyList<FormSummary> summaries = forms.Select(ToSummary).ToList();
         return Result.Success<IReadOnlyList<FormSummary>, Error>(summaries);
     }
 
     public async Task<Result<FormDetails, Error>> GetForm(GetFormInput input)
     {
-        var form = await formRepository.GetById(input.FormId);
+        var form = await formRepository.GetOwnedById(input.OwnerId, input.FormId);
         if (form == null)
             return Result.Failure<FormDetails, Error>(Errors.FormNotFound(input.FormId));
 

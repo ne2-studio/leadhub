@@ -13,7 +13,7 @@ public interface IAdminForms
 
     Task<UnitResult<Error>> DeleteForm(DeleteFormInput input);
 
-    Task<Result<IReadOnlyList<FormSummary>, Error>> ListForms();
+    Task<Result<IReadOnlyList<FormSummary>, Error>> ListForms(ListFormsInput input);
 
     Task<Result<FormDetails, Error>> GetForm(GetFormInput input);
 }

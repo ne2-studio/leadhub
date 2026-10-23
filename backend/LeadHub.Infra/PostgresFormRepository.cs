@@ -11,10 +11,23 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
         using var connection = new NpgsqlConnection(connectionString);
         var row = await connection.QuerySingleOrDefaultAsync<FormRow>(
             """
-            SELECT "Id", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt"
+            SELECT "Id", "OwnerId", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt"
             FROM "Forms"
             WHERE "Id" = @Id
             """, new { Id = id });
+
+        return row?.ToDomain();
+    }
+
+    public async Task<Form?> GetOwnedById(string ownerId, string id)
+    {
+        using var connection = new NpgsqlConnection(connectionString);
+        var row = await connection.QuerySingleOrDefaultAsync<FormRow>(
+            """
+            SELECT "Id", "OwnerId", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt"
+            FROM "Forms"
+            WHERE "Id" = @Id AND "OwnerId" = @OwnerId
+            """, new { Id = id, OwnerId = ownerId });
 
         return row?.ToDomain();
     }
@@ -24,7 +37,7 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
         using var connection = new NpgsqlConnection(connectionString);
         var row = await connection.QuerySingleOrDefaultAsync<FormRow>(
             """
-            SELECT "Id", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt"
+            SELECT "Id", "OwnerId", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt"
             FROM "Forms"
             WHERE "Slug" = @Slug
             """, new { Slug = slug });
@@ -44,7 +57,7 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
         return count > 0;
     }
 
-    public async Task<IReadOnlyList<FormSummaryProjection>> List()
+    public async Task<IReadOnlyList<FormSummaryProjection>> List(string ownerId)
     {
         using var connection = new NpgsqlConnection(connectionString);
         var rows = await connection.QueryAsync<FormSummaryRow>(
@@ -55,9 +68,10 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
                 MAX(s."CreatedAt") AS "LastSubmissionAt"
             FROM "Forms" f
             LEFT JOIN "Submissions" s ON s."FormId" = f."Id"
+            WHERE f."OwnerId" = @OwnerId
             GROUP BY f."Id", f."Name", f."Slug", f."NotificationsEnabled"
             ORDER BY f."Name"
-            """);
+            """, new { OwnerId = ownerId });
 
         return rows
             .Select(r => new FormSummaryProjection(
@@ -71,8 +85,8 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
         using var connection = new NpgsqlConnection(connectionString);
         await connection.ExecuteAsync(
             """
-            INSERT INTO "Forms" ("Id", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt")
-            VALUES (@Id, @Name, @Slug, @Description, @NotificationsEnabled, @NotificationEmail, @ThankYouUrl, @CreatedAt, @UpdatedAt)
+            INSERT INTO "Forms" ("Id", "OwnerId", "Name", "Slug", "Description", "NotificationsEnabled", "NotificationEmail", "ThankYouUrl", "CreatedAt", "UpdatedAt")
+            VALUES (@Id, @OwnerId, @Name, @Slug, @Description, @NotificationsEnabled, @NotificationEmail, @ThankYouUrl, @CreatedAt, @UpdatedAt)
             ON CONFLICT ("Id") DO UPDATE SET
                 "Name" = EXCLUDED."Name",
                 "Slug" = EXCLUDED."Slug",
@@ -95,6 +109,7 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
     // exactly with that, so the conversion to DateTimeOffset happens explicitly in ToDomain().
     private sealed record FormRow(
         string Id,
+        string OwnerId,
         string Name,
         string Slug,
         string? Description,
@@ -105,7 +120,7 @@ public class PostgresFormRepository(string connectionString) : IFormRepository
         DateTime? UpdatedAt)
     {
         public Form ToDomain() =>
-            new(Id, Name, Slug, Description, NotificationsEnabled, NotificationEmail, ThankYouUrl,
+            new(Id, OwnerId, Name, Slug, Description, NotificationsEnabled, NotificationEmail, ThankYouUrl,
                 AsUtc(CreatedAt), UpdatedAt.HasValue ? AsUtc(UpdatedAt.Value) : null);
 
         private static DateTimeOffset AsUtc(DateTime value) =>

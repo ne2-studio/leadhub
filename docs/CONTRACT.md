@@ -37,6 +37,11 @@ UnexpectedError
 
 Use cases available to the authenticated administrator.
 
+Every form has exactly one owner: the OIDC subject (`sub` claim) of the user who created it. All
+admin inputs carry the caller's `OwnerId`, and forms owned by someone else are reported as
+`FormNotFound` (submissions as `SubmissionNotFound`) so their existence isn't leaked. Ownership
+can't be transferred. Slugs stay globally unique because they address the public submit endpoint.
+
 ```csharp
 public interface IAdminForms
 {
@@ -46,7 +51,7 @@ public interface IAdminForms
 
     Task<Result<Unit>> DeleteForm(DeleteFormInput input);
 
-    Task<Result<IReadOnlyList<FormSummary>>> ListForms();
+    Task<Result<IReadOnlyList<FormSummary>>> ListForms(ListFormsInput input);
 
     Task<Result<FormDetails>> GetForm(GetFormInput input);
 }
@@ -88,6 +93,7 @@ public interface IPublicForms
 
 ```csharp
 public sealed record CreateFormInput(
+    string OwnerId,
     string Name,
     string Slug,
     string? Description,
@@ -131,6 +137,7 @@ InvalidFormConfiguration
 
 ```csharp
 public sealed record UpdateFormInput(
+    string OwnerId,
     string FormId,
     string Name,
     string Slug,
@@ -161,6 +168,7 @@ InvalidFormConfiguration
 
 ```csharp
 public sealed record DeleteFormInput(
+    string OwnerId,
     string FormId
 );
 ```
@@ -180,6 +188,14 @@ FormNotFound
 ---
 
 ## List Forms
+
+```csharp
+public sealed record ListFormsInput(
+    string OwnerId
+);
+```
+
+Returns only the caller's forms.
 
 ```csharp
 public sealed record FormSummary(
@@ -204,6 +220,7 @@ Result<IReadOnlyList<FormSummary>>
 
 ```csharp
 public sealed record GetFormInput(
+    string OwnerId,
     string FormId
 );
 ```
@@ -277,6 +294,7 @@ UnexpectedError
 
 ```csharp
 public sealed record ListSubmissionsInput(
+    string OwnerId,
     string FormId,
     int Page,
     int PageSize,
@@ -323,6 +341,7 @@ FormNotFound
 
 ```csharp
 public sealed record GetSubmissionInput(
+    string OwnerId,
     string SubmissionId
 );
 ```
@@ -422,13 +441,16 @@ Persistence for forms.
 ```csharp
 public interface IFormRepository
 {
+    // Unscoped: system flows only (submission analysis). Admin use cases use GetOwnedById.
     Task<Form?> GetById(string id);
+
+    Task<Form?> GetOwnedById(string ownerId, string id);
 
     Task<Form?> GetBySlug(string slug);
 
     Task<bool> ExistsBySlug(string slug, string? excludingFormId = null);
 
-    Task<IReadOnlyList<FormSummaryProjection>> List();
+    Task<IReadOnlyList<FormSummaryProjection>> List(string ownerId);
 
     Task Save(Form form);
 

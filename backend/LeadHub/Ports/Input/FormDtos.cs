@@ -1,6 +1,7 @@
 namespace LeadHub.Ports.Input;
 
 public sealed record CreateFormInput(
+    string OwnerId,
     string Name,
     string Slug,
     string? Description,
@@ -10,6 +11,7 @@ public sealed record CreateFormInput(
 );
 
 public sealed record UpdateFormInput(
+    string OwnerId,
     string FormId,
     string Name,
     string Slug,
@@ -19,9 +21,11 @@ public sealed record UpdateFormInput(
     string? ThankYouUrl
 );
 
-public sealed record DeleteFormInput(string FormId);
+public sealed record DeleteFormInput(string OwnerId, string FormId);
 
-public sealed record GetFormInput(string FormId);
+public sealed record GetFormInput(string OwnerId, string FormId);
+
+public sealed record ListFormsInput(string OwnerId);
 
 public sealed record FormDetails(
     string Id,

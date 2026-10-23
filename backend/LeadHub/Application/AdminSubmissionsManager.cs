@@ -12,7 +12,7 @@ public class AdminSubmissionsManager(
 {
     public async Task<Result<PaginatedResult<SubmissionSummary>, Error>> ListSubmissions(ListSubmissionsInput input)
     {
-        var form = await formRepository.GetById(input.FormId);
+        var form = await formRepository.GetOwnedById(input.OwnerId, input.FormId);
         if (form == null)
             return Result.Failure<PaginatedResult<SubmissionSummary>, Error>(Errors.FormNotFound(input.FormId));
 
@@ -30,6 +30,11 @@ public class AdminSubmissionsManager(
     {
         var submission = await submissionRepository.GetById(input.SubmissionId);
         if (submission == null)
+            return Result.Failure<SubmissionDetails, Error>(Errors.SubmissionNotFound(input.SubmissionId));
+
+        // Someone else's submission is reported as not found, so its existence isn't leaked.
+        var form = await formRepository.GetOwnedById(input.OwnerId, submission.FormId);
+        if (form == null)
             return Result.Failure<SubmissionDetails, Error>(Errors.SubmissionNotFound(input.SubmissionId));
 
         logger.LogInformation("GetSubmission - Fetched submission {SubmissionId}", input.SubmissionId);
