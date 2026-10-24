@@ -33,9 +33,9 @@ public class ClassifierSpamRuleTests
     [InlineData(0.85, 20, "classifier_spam")]
     [InlineData(0.6, 10, "classifier_suspected_spam")]
     [InlineData(0.5, 10, "classifier_suspected_spam")]
-    public async Task Evaluate_ShouldReturnHit_WhenScoreAboveThreshold(double score, int points, string reason)
+    public async Task Evaluate_ShouldReturnHit_WhenProbabilityAboveThreshold(double probability, int points, string reason)
     {
-        ClassifierReturns(new SpamClassification(true, score, "promo"));
+        ClassifierReturns(new SpamClassification(probability));
 
         var hit = await MakeRule().Evaluate(Lead, CancellationToken.None);
 
@@ -45,9 +45,9 @@ public class ClassifierSpamRuleTests
     }
 
     [Fact]
-    public async Task Evaluate_ShouldReturnNull_WhenScoreLow()
+    public async Task Evaluate_ShouldReturnNull_WhenProbabilityLow()
     {
-        ClassifierReturns(new SpamClassification(false, 0.1, "genuine enquiry"));
+        ClassifierReturns(new SpamClassification(0.1));
 
         Assert.Null(await MakeRule().Evaluate(Lead, CancellationToken.None));
     }
@@ -67,7 +67,7 @@ public class ClassifierSpamRuleTests
     [Fact]
     public async Task Evaluate_ShouldSendOnlyVisibleTextFields()
     {
-        ClassifierReturns(new SpamClassification(false, 0, "ok"));
+        ClassifierReturns(new SpamClassification(0));
 
         await MakeRule().Evaluate(Lead, CancellationToken.None);
 

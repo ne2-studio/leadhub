@@ -6,73 +6,68 @@ using LeadHub.Infra.SpamAnalysis;
 
 namespace LeadHub.Infra.Tests.SpamAnalysis;
 
-public class OpenRouterSpamClassifierTests
+public class JevSpamClassifierTests
 {
     private static readonly IReadOnlyList<KeyValuePair<string, string>> Fields =
         [new("name", "Pedro"), new("message", "Hello, please contact me.")];
 
-    private static (OpenRouterSpamClassifier Classifier, StubHandler Handler) MakeClassifier(
+    private static (JevSpamClassifier Classifier, StubHandler Handler) MakeClassifier(
         Func<HttpResponseMessage> respond, SpamClassifierOptions? options = null)
     {
         var handler = new StubHandler(respond);
-        var client = new HttpClient(handler) { BaseAddress = new Uri("https://openrouter.test/api/v1/") };
-        return (new OpenRouterSpamClassifier(client, Options.Create(options ?? new SpamClassifierOptions())), handler);
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://openrouter.test/api/") };
+        return (new JevSpamClassifier(client, Options.Create(options ?? new SpamClassifierOptions())), handler);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, object body) =>
         new(status) { Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json") };
 
-    private static HttpResponseMessage Completion(string content) => Json(HttpStatusCode.OK, new
+    private static HttpResponseMessage Noul(object probability) => Json(HttpStatusCode.OK, new
     {
-        id = "gen-1",
-        model = "some/routed-model",
-        choices = new[] { new { index = 0, finish_reason = "stop", message = new { role = "assistant", content } } }
+        id = "gen-dec-1",
+        model = "typesafe/jev-1.14",
+        answers = new { is_spam = new { type = "noul", noul = probability } },
+        usage = new { input_tokens = 1, output_tokens = 1 }
     });
 
     [Fact]
-    public async Task Classify_ShouldParseStructuredVerdict()
+    public async Task Classify_ShouldReturnNoulProbability()
     {
-        var (classifier, _) = MakeClassifier(() => Completion("""{"is_spam":true,"score":0.92,"reason":"SEO offer"}"""));
+        var (classifier, _) = MakeClassifier(() => Noul(0.92));
 
         var result = await classifier.Classify(Fields, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(new SpamClassification(true, 0.92, "SEO offer"), result.Value);
+        Assert.Equal(0.92, result.Value.SpamProbability);
     }
 
     [Fact]
-    public async Task Classify_ShouldPostChatCompletion_WithConfiguredModelAndJsonSchema()
+    public async Task Classify_ShouldPostNoulDecision_WithConfiguredModel()
     {
-        var (classifier, handler) = MakeClassifier(
-            () => Completion("""{"is_spam":false,"score":0.1,"reason":"ok"}"""),
-            new SpamClassifierOptions { Model = "acme/other-model" });
+        var (classifier, handler) = MakeClassifier(() => Noul(0.1), new SpamClassifierOptions { Model = "~typesafe/jev-latest" });
 
         await classifier.Classify(Fields, CancellationToken.None);
 
-        Assert.Equal("https://openrouter.test/api/v1/chat/completions", handler.LastRequestUri?.ToString());
+        Assert.Equal("https://openrouter.test/api/alpha/decisions", handler.LastRequestUri?.ToString());
         using var body = JsonDocument.Parse(handler.LastRequestBody!);
         var root = body.RootElement;
-        Assert.Equal("acme/other-model", root.GetProperty("model").GetString());
-        Assert.Equal(0, root.GetProperty("temperature").GetInt32());
-        Assert.Equal("json_schema", root.GetProperty("response_format").GetProperty("type").GetString());
-        Assert.True(root.GetProperty("response_format").GetProperty("json_schema").GetProperty("strict").GetBoolean());
-        Assert.True(root.GetProperty("provider").GetProperty("require_parameters").GetBoolean());
-        var messages = root.GetProperty("messages");
-        Assert.Equal("system", messages[0].GetProperty("role").GetString());
-        Assert.Equal("name: Pedro\nmessage: Hello, please contact me.", messages[1].GetProperty("content").GetString());
+        Assert.Equal("~typesafe/jev-latest", root.GetProperty("model").GetString());
+        Assert.Equal("name: Pedro\nmessage: Hello, please contact me.", root.GetProperty("state").GetString());
+        var question = root.GetProperty("questions").GetProperty("is_spam");
+        Assert.Equal("noul", question.GetProperty("type").GetString());
+        Assert.True(question.GetProperty("criteria").TryGetProperty("true", out _));
+        Assert.True(question.GetProperty("criteria").TryGetProperty("false", out _));
     }
 
     [Fact]
-    public async Task Classify_ShouldTruncateInput_ToMaxInputChars()
+    public async Task Classify_ShouldTruncateState_ToMaxInputChars()
     {
-        var (classifier, handler) = MakeClassifier(
-            () => Completion("""{"is_spam":false,"score":0.1,"reason":"ok"}"""),
-            new SpamClassifierOptions { MaxInputChars = 10 });
+        var (classifier, handler) = MakeClassifier(() => Noul(0.1), new SpamClassifierOptions { MaxInputChars = 10 });
 
         await classifier.Classify(Fields, CancellationToken.None);
 
         using var body = JsonDocument.Parse(handler.LastRequestBody!);
-        Assert.Equal("name: Pedr", body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString());
+        Assert.Equal("name: Pedr", body.RootElement.GetProperty("state").GetString());
     }
 
     [Theory]
@@ -87,23 +82,34 @@ public class OpenRouterSpamClassifierTests
         Assert.True((await classifier.Classify(Fields, CancellationToken.None)).IsFailure);
     }
 
-    [Theory]
-    [InlineData("not json")]
-    [InlineData("""{"is_spam":true}""")]
-    [InlineData("""{"is_spam":true,"score":"high","reason":"x"}""")]
-    [InlineData("""{"is_spam":true,"score":1.5,"reason":"x"}""")]
-    [InlineData("")]
-    public async Task Classify_ShouldFail_WhenCompletionContentInvalid(string content)
+    [Fact]
+    public async Task Classify_ShouldFail_WhenAnswerMissing()
     {
-        var (classifier, _) = MakeClassifier(() => Completion(content));
+        var (classifier, _) = MakeClassifier(() => Json(HttpStatusCode.OK, new { answers = new { } }));
 
         Assert.True((await classifier.Classify(Fields, CancellationToken.None)).IsFailure);
     }
 
     [Fact]
-    public async Task Classify_ShouldFail_WhenNoChoices()
+    public async Task Classify_ShouldFail_WhenProbabilityNotNumber()
     {
-        var (classifier, _) = MakeClassifier(() => Json(HttpStatusCode.OK, new { choices = Array.Empty<object>() }));
+        var (classifier, _) = MakeClassifier(() => Noul("high"));
+
+        Assert.True((await classifier.Classify(Fields, CancellationToken.None)).IsFailure);
+    }
+
+    [Fact]
+    public async Task Classify_ShouldFail_WhenProbabilityOutOfRange()
+    {
+        var (classifier, _) = MakeClassifier(() => Noul(1.5));
+
+        Assert.True((await classifier.Classify(Fields, CancellationToken.None)).IsFailure);
+    }
+
+    [Fact]
+    public async Task Classify_ShouldFail_WhenBodyNotJson()
+    {
+        var (classifier, _) = MakeClassifier(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("oops") });
 
         Assert.True((await classifier.Classify(Fields, CancellationToken.None)).IsFailure);
     }

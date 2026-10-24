@@ -7,13 +7,12 @@ namespace LeadHub.Infra.SpamAnalysis;
 public class SpamClassifierOptions
 {
     public string ApiKey { get; set; } = string.Empty;
-    public string BaseUrl { get; set; } = "https://openrouter.ai/api/v1/";
-    public string Model { get; set; } = "typesafe/jev-router";
+    public string BaseUrl { get; set; } = "https://openrouter.ai/api/";
+    public string Model { get; set; } = "typesafe/jev-1.14";
     public int TimeoutSeconds { get; set; } = 5;
     public int MaxInputChars { get; set; } = 4000;
-    public int MaxTokens { get; set; } = 200;
-    public double SuspectedSpamScoreThreshold { get; set; } = 0.5;
-    public double SpamScoreThreshold { get; set; } = 0.85;
+    public double SuspectedSpamProbability { get; set; } = 0.5;
+    public double SpamProbability { get; set; } = 0.85;
     public int SuspectedSpamPoints { get; set; } = 10;
     public int SpamPoints { get; set; } = 20;
 }
@@ -42,14 +41,13 @@ public class ClassifierSpamRule(
         }
 
         var settings = options.Value;
-        var classification = result.Value;
-        logger.LogInformation("SpamClassifier - Submission {SubmissionId} scored {Score} (is_spam {IsSpam}): {Reason}",
-            submission.Id, classification.Score, classification.IsSpam, classification.Reason);
+        var probability = result.Value.SpamProbability;
+        logger.LogInformation("SpamClassifier - Submission {SubmissionId} spam probability {Probability}", submission.Id, probability);
 
-        return classification.Score switch
+        return probability switch
         {
-            var s when s >= settings.SpamScoreThreshold => new SpamRuleHit(settings.SpamPoints, "classifier_spam"),
-            var s when s >= settings.SuspectedSpamScoreThreshold => new SpamRuleHit(settings.SuspectedSpamPoints, "classifier_suspected_spam"),
+            var p when p >= settings.SpamProbability => new SpamRuleHit(settings.SpamPoints, "classifier_spam"),
+            var p when p >= settings.SuspectedSpamProbability => new SpamRuleHit(settings.SuspectedSpamPoints, "classifier_suspected_spam"),
             _ => null
         };
     }

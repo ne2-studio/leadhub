@@ -23,7 +23,7 @@ public class SpamClassifierRegistrationTests
     }
 
     [Fact]
-    public void AddInfrastructure_ShouldRegisterOpenRouterClassifier_UsingOpenRouterApiKeyEnvVar()
+    public void AddInfrastructure_ShouldRegisterOpenRouterClassifier_UsingJevClassifierWithOpenRouterApiKeyEnvVar()
     {
         using var provider = Build(new Dictionary<string, string?>
         {
@@ -35,7 +35,7 @@ public class SpamClassifierRegistrationTests
         Assert.IsType<ClassifierSpamRule>(Assert.Single(scope.ServiceProvider.GetServices<IAsyncSpamRule>()));
         var client = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ISpamClassifier));
         Assert.Equal("Bearer sk-or-test", client.DefaultRequestHeaders.Authorization?.ToString());
-        Assert.Equal(new Uri("https://openrouter.ai/api/v1/"), client.BaseAddress);
+        Assert.Equal(new Uri("https://openrouter.ai/api/"), client.BaseAddress);
         Assert.Equal(TimeSpan.FromSeconds(5), client.Timeout);
     }
 }

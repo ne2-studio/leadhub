@@ -534,7 +534,7 @@ name pattern, message too long) and classifies the total against configurable th
 (`SuspectedSpamThreshold`, `SpamThreshold`). New rules are added without modifying existing ones.
 Signals needing I/O implement `IAsyncSpamRule` (same hit-or-null contract, must fail open); the
 only one today is `ClassifierSpamRule`, which delegates to an `ISpamClassifier` (default
-`OpenRouterSpamClassifier`, model `typesafe/jev-router`) and is registered only when
+`JevSpamClassifier`, TypeSafe Jev via OpenRouter's Decisions API) and is registered only when
 `Features:SpamClassifier:Enabled` is true.
 
 ---

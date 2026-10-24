@@ -13,5 +13,5 @@ public interface ISpamClassifier
     Task<Result<SpamClassification>> Classify(IReadOnlyList<KeyValuePair<string, string>> fields, CancellationToken cancellationToken);
 }
 
-/// <param name="Score">Spam likelihood, 0 (genuine lead) to 1 (certainly spam).</param>
-public sealed record SpamClassification(bool IsSpam, double Score, string Reason);
+/// <param name="SpamProbability">0 (genuine lead) to 1 (certainly spam).</param>
+public sealed record SpamClassification(double SpamProbability);
