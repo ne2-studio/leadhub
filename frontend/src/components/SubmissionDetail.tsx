@@ -27,8 +27,9 @@ const REASON_LABEL: Record<string, string> = {
   suspicious_keyword: 'Message contains a suspicious keyword',
   suspicious_name_pattern: 'Name looks machine-generated',
   message_too_long: 'Message is excessively long',
-  jev_spam: 'Jev classifier: likely spam',
-  jev_suspected_spam: 'Jev classifier: possibly spam',
+  classifier_spam: 'AI classifier: likely spam',
+  classifier_suspected_spam: 'AI classifier: possibly spam',
+  classifier_unavailable: 'Not classified (AI classifier unavailable)',
 };
 
 export function SubmissionDetail({ submission, isLoading, onClose }: SubmissionDetailProps) {

@@ -91,15 +91,15 @@ public class RuleBasedSpamAnalyzerTests
     [Fact]
     public async Task Analyze_ShouldAddAsyncRuleHits_ToLocalScore()
     {
-        var jev = Substitute.For<IAsyncSpamRule>();
-        jev.Evaluate(Arg.Any<Submission>(), Arg.Any<CancellationToken>()).Returns(new SpamRuleHit(20, "jev_spam"));
-        var analyzer = MakeAnalyzer(null, jev);
+        var classifier = Substitute.For<IAsyncSpamRule>();
+        classifier.Evaluate(Arg.Any<Submission>(), Arg.Any<CancellationToken>()).Returns(new SpamRuleHit(20, "classifier_spam"));
+        var analyzer = MakeAnalyzer(null, classifier);
         var submission = MakeSubmission(new Dictionary<string, object?> { ["name"] = "Pedro", ["message"] = "Hello, please contact me." });
 
         var verdict = await analyzer.Analyze(submission);
 
         Assert.Equal(20, verdict.Score);
         Assert.Equal(SubmissionStatus.Spam, verdict.Status);
-        Assert.Equal(["jev_spam"], verdict.Reasons);
+        Assert.Equal(["classifier_spam"], verdict.Reasons);
     }
 }

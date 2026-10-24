@@ -32,18 +32,21 @@ public static class ServiceRegistration
         services.AddScoped<ISpamRule, MessageTooLongRule>();
         services.AddScoped<ISpamAnalyzer, RuleBasedSpamAnalyzer>();
 
-        // Optional external signal (TypeSafe Jev via OpenRouter). Flag read once here: when off, no
-        // IAsyncSpamRule is registered and the analyzer runs on local rules only.
-        services.Configure<JevOptions>(configuration.GetSection("Jev"));
-        if (configuration.GetValue<bool>("Features:JevSpamAnalysis:Enabled"))
+        // Optional external signal: an LLM classifier (default TypeSafe Jev Router via OpenRouter)
+        // behind ISpamClassifier. Flag read once here: when off, no IAsyncSpamRule is registered and
+        // the analyzer runs on local rules only. ApiKey falls back to the OPENROUTER_API_KEY env var.
+        services.Configure<SpamClassifierOptions>(configuration.GetSection("SpamClassifier"));
+        if (configuration.GetValue<bool>("Features:SpamClassifier:Enabled"))
         {
-            services.AddHttpClient<IAsyncSpamRule, JevSpamRule>(client =>
+            var classifier = configuration.GetSection("SpamClassifier").Get<SpamClassifierOptions>() ?? new SpamClassifierOptions();
+            var apiKey = string.IsNullOrWhiteSpace(classifier.ApiKey) ? configuration["OPENROUTER_API_KEY"] : classifier.ApiKey;
+            services.AddHttpClient<ISpamClassifier, OpenRouterSpamClassifier>(client =>
             {
-                var jev = configuration.GetSection("Jev").Get<JevOptions>() ?? new JevOptions();
-                client.BaseAddress = new Uri(jev.BaseUrl);
-                client.Timeout = TimeSpan.FromSeconds(jev.TimeoutSeconds);
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jev.ApiKey);
+                client.BaseAddress = new Uri(classifier.BaseUrl);
+                client.Timeout = TimeSpan.FromSeconds(classifier.TimeoutSeconds);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             });
+            services.AddScoped<IAsyncSpamRule, ClassifierSpamRule>();
         }
 
         // Singleton: the channel backing the queue must survive across requests; consumed by the

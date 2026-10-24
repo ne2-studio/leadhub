@@ -575,8 +575,9 @@ and `spamReasons`.
 | `suspicious_keyword`        |   +10 | Submitted text contains SEO/scam/gambling vocabulary.  |
 | `suspicious_name_pattern`   |    +5 | A name-like field looks machine-generated (run-on, no space). |
 | `message_too_long`          |    +5 | A message-like field exceeds 500 characters.           |
-| `jev_suspected_spam`        |   +10 | Jev (optional) says spam with probability ≥ 0.5.       |
-| `jev_spam`                  |   +20 | Jev (optional) says spam with probability ≥ 0.85.      |
+| `classifier_spam`           |   +20 | AI classifier (optional) scores the lead ≥ 0.85.       |
+| `classifier_suspected_spam` |   +10 | AI classifier (optional) scores the lead ≥ 0.5.        |
+| `classifier_unavailable`    |     0 | AI classifier enabled but failed — lead is unclassified by it. |
 
 ## Classification thresholds (configurable)
 
@@ -588,23 +589,30 @@ Score >=20   -> Spam
 
 New scoring rules can be added independently, without changing existing ones.
 
-## Jev classifier (optional)
+## AI classifier (optional)
 
-When `Features:JevSpamAnalysis:Enabled` is `true`, each submission is also sent to
-[TypeSafe Jev](https://openrouter.ai/docs/guides/community/jev) through OpenRouter's Decisions API
-(`POST https://openrouter.ai/api/alpha/decisions`, model `typesafe/jev-1.14`) as a single yes/no
-(`noul`) question: "is this lead spam?". The returned probability adds `jev_*` points on top of
-the local rules; the lead is always stored and only **marked** (never discarded), like any
-other verdict.
+When `Features:SpamClassifier:Enabled` is `true`, each submission is also classified by an LLM
+through OpenRouter's OpenAI-compatible API (`POST https://openrouter.ai/api/v1/chat/completions`,
+`Authorization: Bearer <OPENROUTER_API_KEY>`). Default model: `typesafe/jev-router` (TypeSafe Jev
+Router — Jev picks the underlying model per request; the response's `model` field says which one
+answered). The model is configuration, and the client sits behind `ISpamClassifier`, so it can be
+swapped.
 
-* Only visitor-filled text fields are sent (truncated to `Jev:MaxStateChars`); IP, user agent
-  and reserved `_` fields are not. Enabling it means lead data leaves to a third party.
-* Fail-open: timeout, non-2xx (401/402/429/5xx…) or an unexpected response is logged as a warning
-  and the submission is classified with local rules only.
-* Being a model, Jev may answer slightly differently if analysis is retried.
-* Configuration lives in the `Jev` section (`ApiKey`, `Model`, `TimeoutSeconds`,
-  `SuspectedSpamProbability`, `SpamProbability`, `SuspectedSpamScore`, `SpamScore`); set the key
-  via environment variable `Jev__ApiKey`, never in committed files.
+* Classification prompt + structured output (`response_format: json_schema`, strict) returning
+  `{ is_spam, score (0-1), reason }`; `temperature: 0`, `seed: 0`, `max_tokens` capped, and
+  `provider.require_parameters: true` so only endpoints honouring the schema are used.
+* `score` drives the points (`classifier_*` rows above); `is_spam` and `reason` are logged only.
+* Only visitor-filled text fields are sent (truncated to `MaxInputChars`); IP, user agent and
+  reserved `_` fields are not. Enabling it sends lead content to a third party.
+* Fail-open with a short timeout (5 s default): on timeout, non-2xx (401/402/429/5xx…) or a
+  malformed answer the lead is stored and classified by local rules only, with the
+  `classifier_unavailable` reason so admins can see it wasn't model-checked. Leads are **marked**,
+  never discarded.
+* Being a model, the answer may vary slightly if analysis is retried.
+* Settings live in the `SpamClassifier` section (`Model`, `BaseUrl`, `TimeoutSeconds`,
+  `MaxInputChars`, `MaxTokens`, `SuspectedSpamScoreThreshold`, `SpamScoreThreshold`,
+  `SuspectedSpamPoints`, `SpamPoints`). API key: `OPENROUTER_API_KEY` env var (or
+  `SpamClassifier__ApiKey`), never in committed files.
 
 ---
 
