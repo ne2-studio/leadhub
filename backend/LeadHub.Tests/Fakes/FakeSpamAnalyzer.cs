@@ -6,5 +6,5 @@ public class FakeSpamAnalyzer : ISpamAnalyzer
 {
     public SpamVerdict Verdict { get; set; } = new(0, SubmissionStatus.Ham, Array.Empty<string>());
 
-    public SpamVerdict Analyze(Submission submission) => Verdict;
+    public Task<SpamVerdict> Analyze(Submission submission, CancellationToken cancellationToken = default) => Task.FromResult(Verdict);
 }

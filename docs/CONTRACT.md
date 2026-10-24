@@ -395,7 +395,7 @@ public sealed record AnalyzeSubmissionInput(string SubmissionId);
 Behavior:
 
 1. Load the submission.
-2. Run `ISpamAnalyzer.Analyze` to produce a `SpamVerdict`.
+2. Await `ISpamAnalyzer.Analyze` to produce a `SpamVerdict`.
 3. Persist the verdict via `ISubmissionRepository.UpdateAnalysis`.
 4. If the verdict's status is `Ham` and the form has notifications enabled, send the email
    notification (payload with reserved fields stripped).
@@ -408,7 +408,7 @@ NotificationFailed
 ```
 
 A failure result (including an unhandled exception) tells the queue worker to retry. Retrying is
-safe: analysis is deterministic, and re-recording the same verdict is idempotent.
+safe: analysis has no side effects, and re-recording the same verdict is idempotent.
 
 ```csharp
 public enum SubmissionStatus
@@ -518,13 +518,13 @@ public sealed record SendSubmissionNotificationInput(
 
 ## ISpamAnalyzer
 
-Scores a submission for spam signals and classifies it. Deterministic: the same submission always
-produces the same verdict.
+Scores a submission for spam signals and classifies it. Safe to re-run: local rules are
+deterministic; optional external signals fail open.
 
 ```csharp
 public interface ISpamAnalyzer
 {
-    SpamVerdict Analyze(Submission submission);
+    Task<SpamVerdict> Analyze(Submission submission, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -532,6 +532,9 @@ The default implementation (`RuleBasedSpamAnalyzer`) sums the score contributed 
 registered `ISpamRule` (honeypot filled, message contains a URL, suspicious keyword, suspicious
 name pattern, message too long) and classifies the total against configurable thresholds
 (`SuspectedSpamThreshold`, `SpamThreshold`). New rules are added without modifying existing ones.
+Signals needing I/O implement `IAsyncSpamRule` (same hit-or-null contract, must fail open); the
+only one today is `JevSpamRule` (TypeSafe Jev via OpenRouter), registered only when
+`Features:JevSpamAnalysis:Enabled` is true.
 
 ---
 

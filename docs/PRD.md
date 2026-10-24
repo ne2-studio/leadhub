@@ -275,6 +275,8 @@ A submission's spam score is the sum of independent rule hits:
 * Submitted text contains a suspicious keyword — SEO/backlink/casino/crypto/etc. (`+10`).
 * A name-like field looks machine-generated, e.g. `RobertSkect` (`+5`).
 * A message-like field exceeds 500 characters (`+5`).
+* Optional: the TypeSafe Jev classifier (via OpenRouter) judges the lead as spam (`+20`) or
+  possibly spam (`+10`). Off by default; fails open (see API.md › Jev classifier).
 
 Thresholds (configurable): score 0-9 is Ham, 10-19 is SuspectedSpam, 20+ is Spam.
 

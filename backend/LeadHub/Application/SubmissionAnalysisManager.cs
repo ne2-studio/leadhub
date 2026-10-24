@@ -9,7 +9,7 @@ namespace LeadHub.Application;
 /// Runs the background analysis job: scores a pending submission, records the verdict, and — only
 /// for a Ham verdict — sends the owner's email notification. Returning a failure (e.g. the
 /// notification failing to send) signals the queue worker to retry; re-running is safe because
-/// analysis is deterministic and updating the verdict is idempotent.
+/// analysis is safe to repeat and updating the verdict is idempotent.
 /// </summary>
 public class SubmissionAnalysisManager(
     ILogger<SubmissionAnalysisManager> logger,
@@ -27,7 +27,7 @@ public class SubmissionAnalysisManager(
             return UnitResult.Failure(Errors.SubmissionNotFound(input.SubmissionId));
         }
 
-        var verdict = spamAnalyzer.Analyze(submission);
+        var verdict = await spamAnalyzer.Analyze(submission);
         await submissionRepository.UpdateAnalysis(submission.Id, verdict);
 
         logger.LogInformation(

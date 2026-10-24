@@ -32,6 +32,20 @@ public static class ServiceRegistration
         services.AddScoped<ISpamRule, MessageTooLongRule>();
         services.AddScoped<ISpamAnalyzer, RuleBasedSpamAnalyzer>();
 
+        // Optional external signal (TypeSafe Jev via OpenRouter). Flag read once here: when off, no
+        // IAsyncSpamRule is registered and the analyzer runs on local rules only.
+        services.Configure<JevOptions>(configuration.GetSection("Jev"));
+        if (configuration.GetValue<bool>("Features:JevSpamAnalysis:Enabled"))
+        {
+            services.AddHttpClient<IAsyncSpamRule, JevSpamRule>(client =>
+            {
+                var jev = configuration.GetSection("Jev").Get<JevOptions>() ?? new JevOptions();
+                client.BaseAddress = new Uri(jev.BaseUrl);
+                client.Timeout = TimeSpan.FromSeconds(jev.TimeoutSeconds);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jev.ApiKey);
+            });
+        }
+
         // Singleton: the channel backing the queue must survive across requests; consumed by the
         // hosted service registered below, which resolves Scoped services per job via a new scope.
         services.AddSingleton<SubmissionAnalysisQueue>();

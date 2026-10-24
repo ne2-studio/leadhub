@@ -104,6 +104,12 @@ Set these via `appsettings.Development.json`, user secrets, or environment varia
 (`Features__EmailNotifications__Enabled`, `Resend__ApiKey`). With the flag off, submissions are
 still stored — only the outbound API call is skipped (Null Object pattern).
 
+### Jev spam classifier (optional)
+
+Adds a [TypeSafe Jev](https://openrouter.ai/docs/guides/community/jev) signal (via OpenRouter) to
+spam scoring. Off by default; enable with `Features__JevSpamAnalysis__Enabled=true` and
+`Jev__ApiKey=<OpenRouter key>`. Fails open. Details in `docs/API.md` › Jev classifier.
+
 ### Run tests
 
 ```bash

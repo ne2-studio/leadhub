@@ -1,12 +1,13 @@
 namespace LeadHub.Ports.Output;
 
 /// <summary>
-/// Scores a submission for spam signals. Must be deterministic: the same submission always
-/// produces the same verdict, so analysis can be safely retried after a transient failure.
+/// Scores a submission for spam signals. Re-running on the same submission must be safe, so
+/// analysis can be retried after a transient failure. Local rules are deterministic; optional
+/// external signals (e.g. Jev) may vary slightly between runs and fail open.
 /// </summary>
 public interface ISpamAnalyzer
 {
-    SpamVerdict Analyze(Submission submission);
+    Task<SpamVerdict> Analyze(Submission submission, CancellationToken cancellationToken = default);
 }
 
 public sealed record SpamVerdict(int Score, SubmissionStatus Status, IReadOnlyList<string> Reasons);
