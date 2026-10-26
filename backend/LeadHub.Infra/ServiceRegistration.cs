@@ -32,6 +32,23 @@ public static class ServiceRegistration
         services.AddScoped<ISpamRule, MessageTooLongRule>();
         services.AddScoped<ISpamAnalyzer, RuleBasedSpamAnalyzer>();
 
+        // Optional external signal: TypeSafe Jev (Decisions API via OpenRouter)
+        // behind ISpamClassifier. Flag read once here: when off, no IAsyncSpamRule is registered and
+        // the analyzer runs on local rules only. ApiKey falls back to the OPENROUTER_API_KEY env var.
+        services.Configure<SpamClassifierOptions>(configuration.GetSection("SpamClassifier"));
+        if (configuration.GetValue<bool>("Features:SpamClassifier:Enabled"))
+        {
+            var classifier = configuration.GetSection("SpamClassifier").Get<SpamClassifierOptions>() ?? new SpamClassifierOptions();
+            var apiKey = string.IsNullOrWhiteSpace(classifier.ApiKey) ? configuration["OPENROUTER_API_KEY"] : classifier.ApiKey;
+            services.AddHttpClient<ISpamClassifier, JevSpamClassifier>(client =>
+            {
+                client.BaseAddress = new Uri(classifier.BaseUrl);
+                client.Timeout = TimeSpan.FromSeconds(classifier.TimeoutSeconds);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            });
+            services.AddScoped<IAsyncSpamRule, ClassifierSpamRule>();
+        }
+
         // Singleton: the channel backing the queue must survive across requests; consumed by the
         // hosted service registered below, which resolves Scoped services per job via a new scope.
         services.AddSingleton<SubmissionAnalysisQueue>();

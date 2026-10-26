@@ -575,6 +575,9 @@ and `spamReasons`.
 | `suspicious_keyword`        |   +10 | Submitted text contains SEO/scam/gambling vocabulary.  |
 | `suspicious_name_pattern`   |    +5 | A name-like field looks machine-generated (run-on, no space). |
 | `message_too_long`          |    +5 | A message-like field exceeds 500 characters.           |
+| `classifier_spam`           |   +20 | Jev (optional): spam probability ≥ 0.85.               |
+| `classifier_suspected_spam` |   +10 | Jev (optional): spam probability ≥ 0.5.                |
+| `classifier_unavailable`    |     0 | Jev enabled but failed — lead is unclassified by it. |
 
 ## Classification thresholds (configurable)
 
@@ -585,6 +588,28 @@ Score >=20   -> Spam
 ```
 
 New scoring rules can be added independently, without changing existing ones.
+
+## Jev classifier (optional)
+
+When `Features:SpamClassifier:Enabled` is `true`, each submission is also classified by
+[TypeSafe Jev](https://openrouter.ai/docs/guides/community/jev) through OpenRouter's Decisions API
+(`POST https://openrouter.ai/api/alpha/decisions`, `Authorization: Bearer <OPENROUTER_API_KEY>`,
+model `typesafe/jev-1.14` by default). Jev isn't reachable through chat completions — that's
+`typesafe/jev-router`, which only picks *another* model to answer.
+
+* One yes/no question (`noul`, key `is_spam`) with `true`/`false` criteria; Jev answers with the
+  spam probability (`answers.is_spam.noul`, 0-1), which maps to the `classifier_*` rows above.
+* The client sits behind `ISpamClassifier`, and the model is configuration, so either can change.
+* Only visitor-filled text fields are sent as `state` (truncated to `MaxInputChars`); IP, user
+  agent and reserved `_` fields are not. Enabling it sends lead content to a third party.
+* Fail-open with a short timeout (5 s default): on timeout, non-2xx (401/402/429/5xx…) or a
+  malformed answer the lead is stored and classified by local rules only, with the
+  `classifier_unavailable` reason so admins can see Jev didn't check it. Leads are **marked**,
+  never discarded.
+* Settings live in the `SpamClassifier` section (`Model`, `BaseUrl`, `TimeoutSeconds`,
+  `MaxInputChars`, `SuspectedSpamProbability`, `SpamProbability`, `SuspectedSpamPoints`,
+  `SpamPoints`). API key: `OPENROUTER_API_KEY` env var (or `SpamClassifier__ApiKey`), never in
+  committed files.
 
 ---
 

@@ -16,4 +16,10 @@ internal static class PayloadFields
             .Where(kv => kv.Key.Contains(keyFragment, StringComparison.OrdinalIgnoreCase))
             .Select(kv => kv.Value as string)
             .Where(v => !string.IsNullOrEmpty(v))!;
+
+    /// <summary>Text fields the visitor actually filled in — reserved "_" fields (honeypot) excluded.</summary>
+    public static IEnumerable<KeyValuePair<string, string>> VisibleTextFields(Submission submission) =>
+        submission.Payload
+            .Where(kv => !kv.Key.StartsWith('_') && kv.Value is string { Length: > 0 })
+            .Select(kv => new KeyValuePair<string, string>(kv.Key, (string)kv.Value!));
 }
