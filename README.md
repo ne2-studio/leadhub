@@ -16,7 +16,7 @@ product spec.
 | `docs/API.md` | The HTTP API contract |
 | `backend/` | ASP.NET Core (.NET 10) ports & adapters implementation — see [`backend/README.md`](backend/README.md) |
 | `frontend/` | React 19 + Vite + Zustand admin panel — see [`frontend/README.md`](frontend/README.md) |
-| `.github/workflows/` | Path-filtered CI/CD for each service (build → test → Docker image → registry → deploy webhook) |
+| `.github/workflows/` | Path-filtered CI/CD for each service (backend: build → test → Docker image → registry → Coolify webhook; frontend: type-check → build → Cloudflare Pages) |
 
 ## Architecture
 
@@ -38,7 +38,7 @@ authentication. Full conventions and rationale are in [`docs/ARCHITECTURE.md`](d
 
 - Node.js 22+
 - .NET 10 SDK
-- Docker (for PostgreSQL locally, and for building images)
+- Docker (for PostgreSQL locally, and for building the backend image)
 
 ### Backend
 
@@ -67,12 +67,11 @@ See [`frontend/README.md`](frontend/README.md) for details.
 ### Everything via Docker Compose
 
 `docker-compose.yaml` at the repo root spins up Postgres, the backend, the frontend, and a
-`fake-oidc` auth provider together, each service built from its own `Dockerfile` (fake-oidc is
-pulled prebuilt). The frontend image only copies a pre-built `dist/` (it doesn't run `npm run
-build` itself), so build the frontend once first:
+`fake-oidc` auth provider together: the backend is built from its `Dockerfile`, the frontend runs
+the Vite dev server in a `node:22-alpine` container over the mounted `frontend/` directory, and
+fake-oidc is pulled prebuilt:
 
 ```bash
-cd frontend && cp .env.example .env && npm install && npm run build && cd ..
 docker compose up --build
 ```
 
@@ -85,10 +84,15 @@ fake-oidc: http://localhost:5000.
 
 ## Deployment
 
-Both services are containerized and deploy independently. CI/CD runs on push to `main`
-(path-filtered per service), builds a Docker image, pushes it to GitHub Container Registry, and
-triggers a Coolify deploy webhook — see `.github/workflows/backend-deploy.yml` and
-`frontend-deploy.yml`.
+The two services deploy independently, path-filtered per service:
+
+- **Backend** — on push to `main`, `.github/workflows/backend-deploy.yml` runs the tests, builds a
+  Docker image, pushes it to GitHub Container Registry and triggers a Coolify deploy webhook.
+- **Frontend** — `.github/workflows/frontend-deploy.yml` type-checks and builds the Vite app (with
+  `VITE_*` from the repo's Actions variables) and deploys `dist/` to the Cloudflare Pages project
+  `leadhub-frontend`: push to `main` → production (https://leadhub-frontend.ne2.studio); pull
+  request → preview at `<branch>.leadhub-frontend.pages.dev`, linked in a PR comment. With no
+  `404.html` in `dist/`, Pages serves `index.html` for unknown paths (SPA routing).
 
 ## License
 

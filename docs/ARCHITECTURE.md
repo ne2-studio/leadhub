@@ -118,6 +118,6 @@ components/  →  store/use{Domain}Store (Zustand)  →  api.ts (fetch client)  
 
 ## Cross-cutting / deployment
 
-- **CI/CD**: two independent GitHub Actions workflows (`backend-deploy.yml`, `frontend-deploy.yml`), path-filtered so each only runs when its own directory changes. Both: build → (backend also runs `dotnet test`) → build a Docker image → push to a container registry (e.g. GHCR) → trigger a deploy webhook.
-- **Containers**: backend is a multi-stage .NET SDK→ASP.NET runtime image exposing port 8080. Frontend is built by Vite in CI, then the static `dist/` is copied into an `nginx:alpine` image (port 80) with a minimal SPA-fallback `nginx.conf` (`try_files $uri $uri/ /index.html`).
+- **CI/CD**: two independent GitHub Actions workflows (`backend-deploy.yml`, `frontend-deploy.yml`), path-filtered so each only runs when its own directory changes. Backend: build → `dotnet test` → build a Docker image → push to a container registry (e.g. GHCR) → trigger a deploy webhook (Coolify). Frontend: type-check → Vite build → deploy the static `dist/` to Cloudflare Pages (production on push to `main`, preview per pull request).
+- **Containers**: backend is a multi-stage .NET SDK→ASP.NET runtime image exposing port 8080. The frontend is not containerized: Cloudflare Pages serves the static `dist/` and, since no `404.html` is shipped, falls back to `index.html` for SPA routes.
 - **No shared package/types** between frontend and backend — DTO shapes are duplicated by hand (backend DTOs vs. `types.ts` classes) and must be kept in sync manually, unless a project specifically justifies a shared-types package.
