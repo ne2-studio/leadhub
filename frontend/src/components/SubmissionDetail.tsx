@@ -30,6 +30,7 @@ const REASON_LABEL: Record<string, string> = {
   classifier_spam: 'Jev: likely spam',
   classifier_suspected_spam: 'Jev: possibly spam',
   classifier_unavailable: 'Not classified (Jev unavailable)',
+  marked_by_admin: 'Status set by hand by an admin',
 };
 
 export function SubmissionDetail({ submission, isLoading, onClose }: SubmissionDetailProps) {

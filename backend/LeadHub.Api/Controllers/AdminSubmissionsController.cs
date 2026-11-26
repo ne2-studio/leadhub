@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using LeadHub.Api.Models;
 using LeadHub.Ports.Input;
 using LeadHub.Ports.Output;
 
@@ -28,6 +29,16 @@ public class AdminSubmissionsController(IAdminSubmissions adminSubmissions) : Co
             return this.UnauthorizedResult();
 
         var result = await adminSubmissions.GetSubmission(new GetSubmissionInput(ownerId, submissionId));
+        return this.ToActionResult(result);
+    }
+
+    [HttpPut("submissions/{submissionId}/spam")]
+    public async Task<IActionResult> Mark(string submissionId, [FromBody] MarkSubmissionRequest request)
+    {
+        if (User.GetUserId() is not { } ownerId)
+            return this.UnauthorizedResult();
+
+        var result = await adminSubmissions.MarkSubmission(new MarkSubmissionInput(ownerId, submissionId, request.IsSpam));
         return this.ToActionResult(result);
     }
 }

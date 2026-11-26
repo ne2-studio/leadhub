@@ -30,7 +30,8 @@ Notable pieces:
   applied to the public route.
 - Two-tier testing: hand-written fakes for core/application logic (`LeadHub.Tests`), NSubstitute
   mocks for the infra decorator and plain unit tests for the other infra adapters
-  (`LeadHub.Infra.Tests`).
+  (`LeadHub.Infra.Tests`). The MCP server is tested end to end with a real MCP client against a
+  `TestServer` (`LeadHub.Api.Tests`).
 
 ## Architecture
 
@@ -54,6 +55,8 @@ does not. Full request/response shapes are documented in [`docs/API.md`](../docs
 | `DELETE` | `/api/admin/forms/{formId}`                 | Required  | Delete a form                  |
 | `GET`    | `/api/admin/forms/{formId}/submissions`     | Required  | List a form's submissions      |
 | `GET`    | `/api/admin/submissions/{submissionId}`     | Required  | Get submission details         |
+| `PUT`    | `/api/admin/submissions/{submissionId}/spam`| Required  | Mark as spam / not spam        |
+| `POST`   | `/mcp`                                      | Required  | MCP server (see [`docs/MCP.md`](../docs/MCP.md)) |
 | `POST`   | `/api/forms/{formSlug}/submit`              | Public    | Submit form data (rate-limited)|
 | `GET`    | `/health`                                   | Public    | Liveness check (rate-limited)  |
 

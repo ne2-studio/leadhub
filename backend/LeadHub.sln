@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LeadHub.Tests", "LeadHub.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LeadHub.Infra.Tests", "LeadHub.Infra.Tests\LeadHub.Infra.Tests.csproj", "{84DFD477-B61D-47FF-A8B2-593067D6840E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LeadHub.Api.Tests", "LeadHub.Api.Tests\LeadHub.Api.Tests.csproj", "{7C75DF22-C3A3-4D39-933D-B591395FCFF9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{84DFD477-B61D-47FF-A8B2-593067D6840E}.Release|x64.Build.0 = Release|Any CPU
 		{84DFD477-B61D-47FF-A8B2-593067D6840E}.Release|x86.ActiveCfg = Release|Any CPU
 		{84DFD477-B61D-47FF-A8B2-593067D6840E}.Release|x86.Build.0 = Release|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Debug|x64.Build.0 = Debug|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Debug|x86.Build.0 = Debug|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Release|x64.ActiveCfg = Release|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Release|x64.Build.0 = Release|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Release|x86.ActiveCfg = Release|Any CPU
+		{7C75DF22-C3A3-4D39-933D-B591395FCFF9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

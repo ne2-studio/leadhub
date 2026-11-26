@@ -14,6 +14,7 @@ product spec.
 | `docs/ARCHITECTURE.md` | The architecture standard both services follow |
 | `docs/CONTRACT.md` | The application (use-case) contract |
 | `docs/API.md` | The HTTP API contract |
+| `docs/MCP.md` | The MCP server for agents, and how to connect Claude Code to it |
 | `backend/` | ASP.NET Core (.NET 10) ports & adapters implementation — see [`backend/README.md`](backend/README.md) |
 | `frontend/` | React 19 + Vite + Zustand admin panel — see [`frontend/README.md`](frontend/README.md) |
 | `.github/workflows/` | Path-filtered CI/CD for each service (backend: build → test → Docker image → registry → Coolify webhook; frontend: type-check → build → Cloudflare Pages) |

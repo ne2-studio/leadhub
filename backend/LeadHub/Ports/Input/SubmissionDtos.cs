@@ -14,6 +14,8 @@ public sealed record SubmissionSummary(
 
 public sealed record GetSubmissionInput(string OwnerId, string SubmissionId);
 
+public sealed record MarkSubmissionInput(string OwnerId, string SubmissionId, bool IsSpam);
+
 public sealed record SubmissionDetails(
     string Id,
     string FormId,
