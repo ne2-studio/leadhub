@@ -551,6 +551,56 @@ GET /api/admin/submissions/{submissionId}
 
 ---
 
+## Mark Submission
+
+Marks a submission as spam or as legitimate (ham), overriding the automatic verdict.
+
+```http
+PUT /api/admin/submissions/{submissionId}/spam
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "isSpam": true
+}
+```
+
+`isSpam: true` sets `status` to `Spam`; `false` sets it to `Ham`. `spamScore` and `spamReasons`
+are kept as evidence, and `marked_by_admin` is added to `spamReasons` (once). Marking as `Ham`
+sends no email notification.
+
+### Success Response
+
+Same shape as [Get Submission](#get-submission), with the new `status`.
+
+### Error Response
+
+```http
+404 Not Found
+```
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SUBMISSION_NOT_FOUND",
+    "message": "Submission not found."
+  }
+}
+```
+
+---
+
+# MCP
+
+The admin API is also exposed as an MCP server at `POST /mcp`, with the same bearer token and one
+tool per admin endpoint. See [`MCP.md`](MCP.md).
+
+---
+
 # Spam Analysis
 
 Every submission is scored asynchronously, immediately after being stored, by a background job —
@@ -578,6 +628,7 @@ and `spamReasons`.
 | `classifier_spam`           |   +20 | Jev (optional): spam probability ≥ 0.85.               |
 | `classifier_suspected_spam` |   +10 | Jev (optional): spam probability ≥ 0.5.                |
 | `classifier_unavailable`    |     0 | Jev enabled but failed — lead is unclassified by it. |
+| `marked_by_admin`           |     0 | An admin set the status by hand ([Mark Submission](#mark-submission)). |
 
 ## Classification thresholds (configurable)
 

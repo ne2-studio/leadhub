@@ -141,4 +141,54 @@ public class AdminSubmissionsManagerTests
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorCode.SubmissionNotFound, result.Error.Code);
     }
+    [Fact]
+    public async Task MarkSubmission_ShouldSetSpamStatus_KeepingTheAnalysisEvidence()
+    {
+        await SaveOwnedForm();
+        await submissionRepository.Save(MakeSubmission("sub-1", DateTimeOffset.UtcNow, score: 5, reasons: ["message_too_long"]));
+
+        var result = await manager.MarkSubmission(new MarkSubmissionInput(OwnerId, "sub-1", IsSpam: true));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SubmissionStatus.Spam, result.Value.Status);
+        Assert.Equal(5, result.Value.SpamScore);
+        Assert.Equal(["message_too_long", "marked_by_admin"], result.Value.SpamReasons);
+        Assert.Equal(SubmissionStatus.Spam, (await submissionRepository.GetById("sub-1"))!.Status);
+    }
+
+    [Fact]
+    public async Task MarkSubmission_ShouldSetHamStatus_AndRecordTheManualMarkOnce()
+    {
+        await SaveOwnedForm();
+        await submissionRepository.Save(MakeSubmission("sub-1", DateTimeOffset.UtcNow, status: SubmissionStatus.Spam, score: 25,
+            reasons: ["message_contains_url", "marked_by_admin"]));
+
+        var result = await manager.MarkSubmission(new MarkSubmissionInput(OwnerId, "sub-1", IsSpam: false));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SubmissionStatus.Ham, result.Value.Status);
+        Assert.Equal(["message_contains_url", "marked_by_admin"], result.Value.SpamReasons);
+    }
+
+    [Fact]
+    public async Task MarkSubmission_ShouldFail_WhenSubmissionDoesNotExist()
+    {
+        var result = await manager.MarkSubmission(new MarkSubmissionInput(OwnerId, "missing", IsSpam: true));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.SubmissionNotFound, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task MarkSubmission_ShouldFail_AndChangeNothing_WhenFormBelongsToAnotherOwner()
+    {
+        await SaveOwnedForm();
+        await submissionRepository.Save(MakeSubmission("sub-1", DateTimeOffset.UtcNow));
+
+        var result = await manager.MarkSubmission(new MarkSubmissionInput(OtherOwnerId, "sub-1", IsSpam: true));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.SubmissionNotFound, result.Error.Code);
+        Assert.Equal(SubmissionStatus.Ham, (await submissionRepository.GetById("sub-1"))!.Status);
+    }
 }

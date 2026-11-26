@@ -4,7 +4,9 @@ using FluentMigrator.Runner;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
+using ModelContextProtocol.AspNetCore.Authentication;
 using Serilog;
+using LeadHub.Api.Mcp;
 using LeadHub.Application;
 using LeadHub.Infra;
 using LeadHub.Ports.Input;
@@ -30,6 +32,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 builder.Services.AddCors();
+builder.Services.AddLeadHubMcp();
 
 // Deployed behind Coolify's Traefik proxy, which sits on a Docker network with no fixed IP,
 // so known proxies/networks can't be pinned; clear them to trust the forwarded headers Traefik sets.
@@ -51,14 +54,16 @@ builder.Host.UseSerilog();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    // The MCP scheme answers 401 with a WWW-Authenticate header pointing to the protected resource metadata,
+    // which MCP clients use to discover the OIDC provider and start the login.
+    options.DefaultChallengeScheme = McpAuthenticationDefaults.AuthenticationScheme;
 }).AddJwtBearer(options =>
 {
     options.Authority = builder.Configuration["Auth:Authority"];
     options.Audience = builder.Configuration["Auth:Audience"];
     // Local dev points Authority at the http:// fake-oidc container; real environments keep https.
     options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-});
+}).AddLeadHubMcpChallenge(builder.Configuration);
 
 builder.Services.AddAuthorization();
 
@@ -132,6 +137,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapLeadHubMcp();
 
 // Example public, unauthenticated endpoint — rate-limited per the architecture convention.
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))

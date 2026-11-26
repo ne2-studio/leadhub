@@ -61,7 +61,7 @@ public interface IAdminForms
 
 ## IAdminSubmissions
 
-Use cases for browsing received submissions.
+Use cases for browsing and reviewing received submissions.
 
 ```csharp
 public interface IAdminSubmissions
@@ -69,6 +69,8 @@ public interface IAdminSubmissions
     Task<Result<PaginatedResult<SubmissionSummary>>> ListSubmissions(ListSubmissionsInput input);
 
     Task<Result<SubmissionDetails>> GetSubmission(GetSubmissionInput input);
+
+    Task<Result<SubmissionDetails>> MarkSubmission(MarkSubmissionInput input);
 }
 ```
 
@@ -361,6 +363,37 @@ public sealed record SubmissionDetails(
 ```
 
 `Payload` has reserved (`_`-prefixed) fields stripped before being returned to the admin UI.
+
+Returns:
+
+```csharp
+Result<SubmissionDetails>
+```
+
+Possible errors:
+
+```csharp
+SubmissionNotFound
+```
+
+---
+
+## Mark Submission
+
+```csharp
+public sealed record MarkSubmissionInput(
+    string OwnerId,
+    string SubmissionId,
+    bool IsSpam
+);
+```
+
+Behavior:
+
+* Sets `Status` to `Spam` (`IsSpam`) or `Ham`, overriding the automatic verdict.
+* Keeps `SpamScore` and `SpamReasons` as evidence and adds `marked_by_admin` once.
+* Persists through `ISubmissionRepository.UpdateAnalysis`.
+* Sends no notification: marking as `Ham` is a review, not a new lead.
 
 Returns:
 
